@@ -6,7 +6,7 @@ import { FaHome, FaUser, FaLaptopCode, FaTrophy, FaEnvelope, FaMoon, FaSun, FaSe
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true); // Default to dark mode to match video background
   const [searchActive, setSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSection, setActiveSection] = useState('introduction');
@@ -54,23 +54,23 @@ const Navbar = () => {
     // In a real app, you'd apply dark mode classes to body or a main container
   };
 
-  // Define color schemes based on mode
+  // Updated color schemes to match video background theme
   const colors = darkMode ? {
-    background: 'rgba(18, 18, 18, 0.95)',
-    text: '#fff',
-    accent: '#64ffda',
+    background: 'rgba(10, 25, 47, 0.85)', // Deep blue to match video overlay
+    text: '#e6f1ff', // Bright white
+    accent: '#64ffda', // Teal accent
     shadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-    mobileMenu: 'rgba(25, 25, 25, 0.98)',
-    border: '#333',
-    logo: '#fff' // Explicitly set logo color for dark mode
+    mobileMenu: 'rgba(10, 25, 47, 0.98)',
+    border: '#112240',
+    logo: '#e6f1ff' // Bright white for logo
   } : {
-    background: 'rgba(255, 255, 255, 0.95)',
-    text: '#333',
-    accent: '#5271ff',
+    background: 'rgba(230, 241, 255, 0.85)', // Light blue to match theme
+    text: '#0a192f', // Deep blue for text
+    accent: '#64ffda', // Keep the teal accent
     shadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-    mobileMenu: 'rgba(255, 255, 255, 0.98)',
-    border: '#eee',
-    logo: '#333' // Explicitly set logo color for light mode
+    mobileMenu: 'rgba(230, 241, 255, 0.98)',
+    border: '#8892b0',
+    logo: '#0a192f' // Deep blue for logo
   };
 
   // Base styles with curved design - FIXED POSITIONING
@@ -85,7 +85,7 @@ const Navbar = () => {
     justifyContent: 'space-between',
     alignItems: 'center',
     transition: 'all 0.3s ease',
-    backgroundColor: scrolled ? colors.background : 'rgba(30, 60, 114, 0.5)', // Semi-transparent blue when not scrolled
+    backgroundColor: scrolled ? colors.background : 'rgba(10, 25, 47, 0.5)', // Semi-transparent blue when not scrolled
     backdropFilter: 'blur(10px)',
     boxShadow: scrolled ? colors.shadow : 'none',
     borderRadius: scrolled ? '0' : '0 0 15px 15px', // Curve only bottom when at top
@@ -100,7 +100,7 @@ const Navbar = () => {
   const logoStyle = {
     fontWeight: '700',
     fontSize: '1.8rem',
-    color: scrolled ? colors.logo : '#fff', // Adjust logo color based on scroll position and theme
+    color: scrolled ? colors.logo : '#e6f1ff', // Adjust logo color based on scroll position and theme
     textDecoration: 'none',
     transition: 'all 0.3s ease',
     fontFamily: "'Montserrat', sans-serif",
@@ -126,11 +126,12 @@ const Navbar = () => {
     borderRadius: '30px',
     padding: '0.5rem',
     margin: '0 1rem',
+    backdropFilter: 'blur(5px)', // Additional blur for glass effect
   };
 
   const linkStyle = (isActive) => ({
-    color: isActive ? '#fff' : scrolled ? colors.text : '#fff',
-    backgroundColor: isActive ? colors.accent : 'transparent',
+    color: isActive ? '#0a192f' : scrolled ? colors.text : '#e6f1ff',
+    backgroundColor: isActive ? '#64ffda' : 'transparent',
     padding: '0.5rem 1rem',
     borderRadius: '25px',
     textDecoration: 'none',
@@ -152,7 +153,7 @@ const Navbar = () => {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    color: scrolled ? colors.text : '#fff', // Adjust color based on scroll position
+    color: scrolled ? colors.text : '#e6f1ff', // Adjust color based on scroll position
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     fontSize: '1.2rem',
@@ -169,7 +170,7 @@ const Navbar = () => {
     borderRadius: '20px',
     border: 'none',
     backgroundColor: 'rgba(255, 255, 255, 0.2)', // Consistent styling
-    color: scrolled ? colors.text : '#fff',
+    color: scrolled ? colors.text : '#e6f1ff',
     outline: 'none',
     width: searchActive ? '200px' : '0px',
     opacity: searchActive ? 1 : 0,
@@ -189,6 +190,7 @@ const Navbar = () => {
     boxShadow: '-5px 0 20px rgba(0, 0, 0, 0.2)',
     zIndex: 90,
     transition: 'right 0.3s ease',
+    backdropFilter: 'blur(10px)', // Additional blur for glass effect
   };
 
   const mobileMenuOverlayStyle = {
@@ -207,7 +209,7 @@ const Navbar = () => {
 
   const mobileLinkStyle = (isActive) => ({
     padding: '1rem',
-    color: isActive ? colors.accent : colors.text,
+    color: isActive ? '#64ffda' : colors.text,
     textDecoration: 'none',
     fontWeight: '500',
     borderBottom: `1px solid ${colors.border}`,
@@ -224,7 +226,7 @@ const Navbar = () => {
     border: 'none',
     borderRadius: '8px',
     padding: '0.5rem',
-    color: scrolled ? colors.text : '#fff', // Adjust color based on scroll position
+    color: scrolled ? colors.text : '#e6f1ff', // Adjust color based on scroll position
     fontSize: '1.5rem',
     cursor: 'pointer',
     zIndex: 101,
@@ -248,6 +250,7 @@ const Navbar = () => {
     menuButtonStyle.display = 'block';
   }
 
+  // Updated navigation items with custom icons and hover effects
   const navItems = [
     { id: 'introduction', name: 'Home', icon: <FaHome /> },
     { id: 'about', name: 'About', icon: <FaUser /> },
@@ -307,7 +310,10 @@ const Navbar = () => {
             </AnimatePresence>
             <motion.button 
               style={iconButtonStyle}
-              whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+              whileHover={{ 
+                backgroundColor: 'rgba(100, 255, 218, 0.2)',
+                color: '#64ffda' 
+              }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setSearchActive(!searchActive)}
             >
@@ -317,7 +323,10 @@ const Navbar = () => {
           
           <motion.button 
             style={iconButtonStyle}
-            whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+            whileHover={{ 
+              backgroundColor: 'rgba(100, 255, 218, 0.2)',
+              color: '#64ffda' 
+            }}
             whileTap={{ scale: 0.95 }}
             onClick={toggleDarkMode}
           >
@@ -326,7 +335,10 @@ const Navbar = () => {
           
           <motion.button 
             style={menuButtonStyle}
-            whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+            whileHover={{ 
+              backgroundColor: 'rgba(100, 255, 218, 0.2)',
+              color: '#64ffda' 
+            }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setMenuOpen(!menuOpen)}
           >
@@ -356,8 +368,9 @@ const Navbar = () => {
             fontFamily: "'Montserrat', sans-serif",
             color: colors.text,
             marginBottom: '0.5rem',
+            fontSize: '2rem',
           }}>
-            K<span style={{ color: colors.accent }}>K</span>
+            K<span style={{ color: '#64ffda' }}>K</span>
           </h2>
           <p style={{
             color: colors.text,
@@ -392,28 +405,38 @@ const Navbar = () => {
           justifyContent: 'space-between',
           padding: '1rem 0',
         }}>
-          <button 
+          <motion.button 
             style={{
               ...iconButtonStyle,
               color: colors.text,
             }}
+            whileHover={{ 
+              backgroundColor: 'rgba(100, 255, 218, 0.2)',
+              color: '#64ffda' 
+            }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => {
               setSearchActive(!searchActive);
               setMenuOpen(false);
             }}
           >
             <FaSearch />
-          </button>
+          </motion.button>
           
-          <button 
+          <motion.button 
             style={{
               ...iconButtonStyle,
               color: colors.text,
             }}
+            whileHover={{ 
+              backgroundColor: 'rgba(100, 255, 218, 0.2)',
+              color: '#64ffda' 
+            }}
+            whileTap={{ scale: 0.95 }}
             onClick={toggleDarkMode}
           >
             {darkMode ? <FaSun /> : <FaMoon />}
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -425,14 +448,32 @@ const Navbar = () => {
         body {
           margin: 0;
           padding: 0;
-          background-color: ${darkMode ? '#121212' : '#ffffff'};
-          color: ${darkMode ? '#ffffff' : '#333333'};
+          background-color: ${darkMode ? '#0a192f' : '#e6f1ff'};
+          color: ${darkMode ? '#e6f1ff' : '#0a192f'};
           transition: all 0.3s ease;
         }
         
         /* Add proper spacing for content below the navbar */
         #introduction {
           padding-top: 80px; /* Adjust based on navbar height */
+        }
+        
+        /* Custom scrollbar to match the theme */
+        ::-webkit-scrollbar {
+          width: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: ${darkMode ? '#0a192f' : '#e6f1ff'};
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: ${darkMode ? '#64ffda' : '#64ffda'};
+          border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: ${darkMode ? '#4fd1b5' : '#4fd1b5'};
         }
       `}</style>
     </>

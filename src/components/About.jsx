@@ -14,6 +14,9 @@ import {
   FaPodcast
 } from 'react-icons/fa';
 
+// Import your code/dev-themed video
+import DevVideo from '../assets/bg.mp4'; // Update path to your video
+
 const About = ({ darkMode }) => {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -34,37 +37,53 @@ const About = ({ darkMode }) => {
     };
   }, []);
 
-  // Dynamic theming based on dark mode
+  // Less violet-heavy color scheme with more neutral/professional tones
   const colors = darkMode ? {
-    background: '#121212',
-    text: '#ffffff',
-    subText: '#cccccc',
-    primary: '#64ffda',
-    secondary: '#5271ff',
-    card: '#1e1e1e',
-    shadow: 'rgba(0, 0, 0, 0.4)',
-    gradient: 'linear-gradient(135deg, #2c3e50, #4a5568)',
-    iconGradient: 'linear-gradient(135deg, #64ffda, #5271ff)'
+    background: '#0f172a', // Dark blue instead of purple
+    text: '#000',
+    subText: '#cbd5e1',
+    primary: '#38bdf8', // Light blue
+    secondary: '#818cf8', // Blue/indigo
+    card: 'rgba(30, 41, 59, 0.8)', // Translucent dark blue
+    shadow: 'rgba(0, 0, 0, 0.25)',
+    overlay: 'rgba(15, 23, 42, 0.85)' // Dark blue overlay
   } : {
-    background: '#f8f9fa',
-    text: '#333333',
-    subText: '#666666',
-    primary: '#5271ff',
-    secondary: '#64ffda',
-    card: '#ffffff',
+    background: '#f8fafc',
+    text: '#1e293b',
+    subText: '#64748b',
+    primary: '#3b82f6', // Blue
+    secondary: '#6366f1', // Indigo
+    card: 'rgba(255, 255, 255, 0.8)', // Translucent white
     shadow: 'rgba(0, 0, 0, 0.1)',
-    gradient: 'linear-gradient(135deg, #e0eafc, #cfdef3)',
-    iconGradient: 'linear-gradient(135deg, #5271ff, #7900ff)'
+    overlay: 'transparent' // Light overlay
   };
 
   const sectionStyle = {
     minHeight: '100vh',
     padding: '6rem 2rem',
-    backgroundColor: colors.background,
     color: colors.text,
-    transition: 'all 0.3s ease',
     position: 'relative',
     overflow: 'hidden'
+  };
+
+  const videoStyle = {
+    position: 'fixed', // Fixed position so it stays consistent across sections
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    zIndex: -2
+  };
+
+  const overlayStyle = {
+    position: 'fixed', // Fixed position to match video
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.overlay,
+    zIndex: -1
   };
 
   const containerStyle = {
@@ -81,9 +100,7 @@ const About = ({ darkMode }) => {
     position: 'relative',
     paddingBottom: '1rem',
     fontWeight: '700',
-    background: colors.iconGradient,
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
+    color: '#fff', // Changed to white
   };
 
   const headingAfterStyle = {
@@ -94,7 +111,7 @@ const About = ({ darkMode }) => {
     transform: 'translateX(-50%)',
     width: '100px',
     height: '4px',
-    backgroundImage: colors.iconGradient,
+    background: colors.primary,
     borderRadius: '2px'
   };
 
@@ -109,16 +126,14 @@ const About = ({ darkMode }) => {
     flex: '1',
     borderRadius: '16px',
     padding: '2rem',
-    backgroundImage: colors.gradient,
+    backgroundColor: colors.card,
+    backdropFilter: 'blur(10px)',
     boxShadow: `0 10px 30px ${colors.shadow}`,
+    border: `1px solid ${colors.primary}20`,
   };
 
   const skillsStyle = {
     flex: '1',
-  };
-
-  const skillsCategoryStyle = {
-    marginBottom: '2rem',
   };
 
   const skillsGridStyle = {
@@ -133,6 +148,7 @@ const About = ({ darkMode }) => {
     flexDirection: 'column',
     alignItems: 'center',
     backgroundColor: colors.card,
+    backdropFilter: 'blur(10px)',
     borderRadius: '16px',
     padding: '1.5rem',
     boxShadow: `0 8px 20px ${colors.shadow}`,
@@ -140,6 +156,7 @@ const About = ({ darkMode }) => {
     cursor: 'default',
     position: 'relative',
     overflow: 'hidden',
+    border: `1px solid ${colors.primary}20`,
   };
 
   const skillIconStyle = {
@@ -176,17 +193,19 @@ const About = ({ darkMode }) => {
     height: '20px',
     borderRadius: '50%',
     backgroundColor: colors.primary,
-    border: `3px solid ${darkMode ? '#121212' : '#f8f9fa'}`,
+    border: `3px solid ${darkMode ? '#0f172a' : '#f8fafc'}`,
     boxShadow: `0 0 0 4px ${colors.secondary}33`,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   };
 
-  const backgroundShapeStyle = {
-    position: 'absolute',
-    borderRadius: '50%',
-    filter: 'blur(80px)',
-    opacity: '0.1',
-    background: colors.primary,
-    zIndex: 1,
+  const sectionTitleStyle = {
+    fontSize: '2rem',
+    marginBottom: '1.5rem',
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
   };
 
   const skills = [
@@ -242,44 +261,17 @@ const About = ({ darkMode }) => {
 
   return (
     <section id="about" className="section" style={sectionStyle}>
-      {/* Background animated shapes */}
-      <motion.div
-        style={{
-          ...backgroundShapeStyle,
-          top: '20%',
-          left: '5%',
-          width: '300px',
-          height: '300px',
-        }}
-        animate={{
-          x: [0, 30, 0],
-          y: [0, 40, 0],
-        }}
-        transition={{
-          duration: 15,
-          repeat: Infinity,
-          repeatType: "reverse"
-        }}
-      />
-      <motion.div
-        style={{
-          ...backgroundShapeStyle,
-          top: '60%',
-          right: '10%',
-          width: '350px',
-          height: '350px',
-          background: colors.secondary,
-        }}
-        animate={{
-          x: [0, -40, 0],
-          y: [0, 30, 0],
-        }}
-        transition={{
-          duration: 18,
-          repeat: Infinity,
-          repeatType: "reverse"
-        }}
-      />
+      {/* Video Background - Applied uniformly to the entire section */}
+      <video
+        autoPlay
+        loop
+        muted
+        style={videoStyle}
+      >
+        <source src={DevVideo} type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <div style={overlayStyle}></div>
 
       <div style={containerStyle}>
         <motion.h2
@@ -294,6 +286,7 @@ const About = ({ darkMode }) => {
         </motion.h2>
 
         <div style={contentStyle}>
+          {/* Journey Section */}
           <motion.div
             style={bioStyle}
             initial={{ opacity: 0, x: -30 }}
@@ -301,7 +294,7 @@ const About = ({ darkMode }) => {
             viewport={{ once: true }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
-            <h3 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: colors.text }}>My Journey</h3>
+            <h3 style={sectionTitleStyle}>My Journey</h3>
             <p style={paragraphStyle}>
               I'm Kalyanasundaram K, an AI Developer and Computer Science Educator with a passion for building innovative solutions. With expertise in AI, Machine Learning, and Full-Stack Development, I create impactful applications that solve real-world problems.
             </p>
@@ -339,6 +332,7 @@ const About = ({ darkMode }) => {
             </motion.div>
           </motion.div>
 
+          {/* Skills Section */}
           <motion.div
             style={skillsStyle}
             initial={{ opacity: 0, x: 30 }}
@@ -346,8 +340,8 @@ const About = ({ darkMode }) => {
             viewport={{ once: true }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
-            <div style={skillsCategoryStyle}>
-              <h3 style={{ fontSize: '2rem', marginBottom: '1.5rem', textAlign: 'center', color: colors.text }}>My Skills</h3>
+            <div style={bioStyle}>
+              <h3 style={sectionTitleStyle}>My Skills</h3>
               <div style={skillsGridStyle}>
                 {skills.map((skill, index) => (
                   <motion.div
@@ -366,7 +360,6 @@ const About = ({ darkMode }) => {
                       style={skillIconStyle}
                       animate={{ 
                         scale: [1, 1.1, 1],
-                        rotate: [0, 5, -5, 0]
                       }}
                       transition={{ 
                         duration: 2,
@@ -378,102 +371,123 @@ const About = ({ darkMode }) => {
                       {skill.icon}
                     </motion.div>
                     <p style={{ fontWeight: '600', color: colors.text }}>{skill.name}</p>
-                    
-                    {/* Background glow effect */}
-                    <motion.div
-                      style={{
-                        position: 'absolute',
-                        bottom: '-30px',
-                        left: '50%',
-                        width: '100px',
-                        height: '100px',
-                        borderRadius: '50%',
-                        background: colors.iconGradient,
-                        filter: 'blur(40px)',
-                        opacity: 0.2,
-                        zIndex: 1,
-                      }}
-                      animate={{
-                        opacity: [0.2, 0.4, 0.2],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        repeatType: "reverse"
-                      }}
-                    />
                   </motion.div>
                 ))}
               </div>
+              
+              {/* Code snippet section */}
+              <motion.div
+                style={{
+                  marginTop: '2rem',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  fontFamily: 'monospace',
+                  position: 'relative'
+                }}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7 }}
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '5px', 
+                  backgroundColor: darkMode ? '#1e1e2e' : '#f1f5f9',
+                  padding: '8px 12px',
+                  borderTopLeftRadius: '8px',
+                  borderTopRightRadius: '8px',
+                }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ff5f56' }}></div>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ffbd2e' }}></div>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#27c93f' }}></div>
+                  <div style={{ marginLeft: 'auto', fontSize: '0.8rem', color: colors.subText }}>profile.js</div>
+                </div>
+                
+                <div style={{ 
+                  backgroundColor: '#000', // Ensure this is applied
+                  padding: '1rem',
+                  color: '#e6e6e6', // Light text for contrast
+                  fontSize: '0.9rem',
+                  lineHeight: '1.5',
+                  overflow: 'auto',
+                  maxHeight: '200px',
+                  borderRadius: '8px', // Optional: Add rounded corners
+                }}>
+                  {[ 
+                    '<span style="color: #ff79c6;">const</span> <span style="color: #bd93f9;">developer</span> = {',
+                    '  <span style="color: #8be9fd;">name</span>: <span style="color: #f1fa8c;">"Kalyanasundaram K"</span>,',
+                    '  <span style="color: #8be9fd;">role</span>: <span style="color: #f1fa8c;">"AI Developer & Educator"</span>,',
+                    '  <span style="color: #8be9fd;">skills</span>: [<span style="color: #f1fa8c;">"Python"</span>, <span style="color: #f1fa8c;">"React"</span>, <span style="color: #f1fa8c;">"ML"</span>],',
+                    '  <span style="color: #8be9fd;">passion</span>: <span style="color: #f1fa8c;">"Building innovative solutions"</span>,',
+                    '',
+                    '  <span style="color: #50fa7b;">createImpact</span>() {',
+                    '    <span style="color: #ff79c6;">return</span> <span style="color: #f1fa8c;">"Transforming ideas into reality"</span>;',
+                    '  }',
+                    '};',
+                    '',
+                    '<span style="color: #ff79c6;">function</span> <span style="color: #50fa7b;">connect</span>() {',
+                    '  <span style="color: #ff79c6;">console</span>.<span style="color: #50fa7b;">log</span>(<span style="color: #f1fa8c;">"Let\'s build something amazing!"</span>);',
+                    '}'
+                  ].map((line, i) => (
+                    <motion.div 
+                      key={i}
+                      initial={{ x: -20, opacity: 0 }}
+                      whileInView={{ x: 0, opacity: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.5 + i * 0.05 }}
+                      dangerouslySetInnerHTML={{ __html: line }}
+                    />
+                  ))}
+                </div>
+                
+                <motion.div
+                  style={{
+                    position: 'absolute',
+                    height: '16px',
+                    width: '8px',
+                    backgroundColor: colors.primary,
+                    bottom: '40px',
+                    right: '40px',
+                    opacity: 0.7
+                  }}
+                  animate={{ opacity: [0.7, 0, 0.7] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                />
+              </motion.div>
             </div>
 
-            {/* 3D Model Viewer */}
+            {/* GitHub Contributions Section */}
             <motion.div
               style={{
                 marginTop: '2rem',
-                textAlign: 'center',
-                backgroundColor: colors.card,
                 borderRadius: '16px',
                 padding: '2rem',
-                boxShadow: `0 8px 20px ${colors.shadow}`,
+                backgroundColor: colors.card,
+                backdropFilter: 'blur(10px)',
+                boxShadow: `0 10px 30px ${colors.shadow}`,
+                border: `1px solid ${colors.primary}20`,
               }}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.7 }}
             >
-              <h3 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: colors.text }}>Tech Visualization</h3>
-              
-              {/* This is a placeholder for a 3D model - in a real implementation, you would use a 3D library like Three.js */}
-              <div style={{ 
-                width: '100%', 
-                height: '200px', 
-                borderRadius: '10px', 
-                background: colors.gradient,
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                overflow: 'hidden',
-                position: 'relative'
-              }}>
-                <p style={{ 
-                  fontSize: '1.2rem', 
-                  fontWeight: '500',
-                  color: '#ffffff',
-                  zIndex: 2
-                }}>3D Tech Stack Visualization</p>
-                
-                {/* Animated elements to simulate 3D */}
-                {[...Array(5)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    style={{
-                      position: 'absolute',
-                      width: `${40 + i * 20}px`,
-                      height: `${40 + i * 20}px`,
-                      borderRadius: '50%',
-                      border: `2px solid ${colors.primary}${80 - i * 15}`,
-                      opacity: 0.8 - i * 0.1,
-                    }}
-                    animate={{
-                      rotate: [0, 360],
-                      scale: [1, 1.1, 1],
-                    }}
-                    transition={{
-                      duration: 8 + i,
-                      repeat: Infinity,
-                      ease: "linear"
-                    }}
-                  />
-                ))}
-              </div>
-              <p style={{ 
-                fontSize: '0.9rem', 
-                marginTop: '1rem', 
-                color: colors.subText 
-              }}>
-                Interactive 3D visualization of my technology stack and skills
+              <h3 style={sectionTitleStyle}>GitHub Contributions</h3>
+              <p style={paragraphStyle}>
+                Here's a visual representation of my GitHub contributions over the past year. It reflects my consistency and dedication to open-source projects and personal development.
               </p>
+              <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                <img
+                  src="https://ghchart.rshah.org/38bdf8/palanikalyan"
+                  alt="GitHub Contribution Graph"
+                  style={{
+                    maxWidth: '100%',
+                    borderRadius: '8px',
+                    boxShadow: `0 8px 20px ${colors.shadow}`,
+                    border: `1px solid ${colors.primary}20`,
+                  }}
+                />
+              </div>
             </motion.div>
           </motion.div>
         </div>

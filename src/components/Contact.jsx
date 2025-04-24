@@ -41,7 +41,6 @@ const Contact = () => {
   const sectionStyle = {
     minHeight: '100vh',
     padding: '6rem 2rem',
-    backgroundColor: '#1e3c72',
     color: '#fff',
   };
 
@@ -275,7 +274,7 @@ const Contact = () => {
                 Feel free to reach out to me for collaborations, opportunities, or just to say hello!
               </p>
               <p style={{ marginBottom: '0.5rem' }}>
-                <strong>Email:</strong> kalyan@example.com
+                <strong>Email:</strong> palanikalyan27@gmail.com
               </p>
               <p style={{ marginBottom: '0.5rem' }}>
                 <strong>Location:</strong> Chennai, India
@@ -293,7 +292,7 @@ const Contact = () => {
               
               <div style={socialLinksStyle}>
                 <motion.a
-                  href="https://linkedin.com/in/" 
+                  href="https://linkedin.com/in/kalyan27" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={iconStyle}
@@ -302,7 +301,7 @@ const Contact = () => {
                   <FaLinkedin size={28} />
                 </motion.a>
                 <motion.a
-                  href="https://github.com/" 
+                  href="https://github.com/palanikalyan" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={iconStyle}
@@ -311,7 +310,7 @@ const Contact = () => {
                   <FaGithub size={28} />
                 </motion.a>
                 <motion.a
-                  href="mailto:email@example.com"
+                  href="mailto:palanikalyan27@gmail.com"
                   style={iconStyle}
                   whileHover={{ color: '#EA4335', scale: 1.2 }}
                 >

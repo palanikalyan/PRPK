@@ -3,25 +3,82 @@ import { motion } from 'framer-motion';
 
 const Projects = () => {
   const [activeProject, setActiveProject] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  // Add useEffect for mobile detection
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    // Initial check
+    checkMobile();
+    
+    // Add resize listener
+    window.addEventListener('resize', checkMobile);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
+
+  // Colors (similar to About component)
+  const colors = {
+    background: '#f8fafc',
+    text: '#1e293b',
+    subText: '#64748b',
+    primary: '#3b82f6', // Blue
+    secondary: '#6366f1', // Indigo
+    card: 'rgba(255, 255, 255, 0.8)', // Translucent white
+    shadow: 'rgba(0, 0, 0, 0.1)',
+    overlay: '#00000000' // Light overlay
+  };
 
   const sectionStyle = {
     minHeight: '100vh',
     padding: '6rem 2rem',
-    backgroundColor: '#fff',
-    color: '#333',
+    position: 'relative',
+    overflow: 'hidden',
+    color: colors.text,
+  };
+
+  // Add video background styles
+  const videoStyle = {
+    position: 'fixed', // Fixed position so it stays consistent across sections
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    zIndex: -2
+  };
+
+  const overlayStyle = {
+    position: 'fixed', // Fixed position to match video
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.overlay,
+    zIndex: -1
   };
 
   const containerStyle = {
     maxWidth: '1200px',
     margin: '0 auto',
+    position: 'relative',
+    zIndex: 2
   };
 
   const headingStyle = {
-    fontSize: '2.5rem',
+    fontSize: '3rem',
     marginBottom: '2rem',
     textAlign: 'center',
     position: 'relative',
     paddingBottom: '1rem',
+    fontWeight: '700',
+    color: '#fff', // Changed to white
   };
 
   const headingAfterStyle = {
@@ -30,31 +87,27 @@ const Projects = () => {
     bottom: 0,
     left: '50%',
     transform: 'translateX(-50%)',
-    width: '80px',
+    width: '100px',
     height: '4px',
-    backgroundColor: '#1e3c72',
+    background: colors.primary,
+    borderRadius: '2px'
   };
 
   const projectsGridStyle = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))',
     gap: '2rem',
     marginTop: '3rem',
   };
 
   const projectCardStyle = {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
+    backdropFilter: 'blur(10px)',
     borderRadius: '12px',
     overflow: 'hidden',
-    boxShadow: '0 10px 20px rgba(0, 0, 0, 0.1)',
+    boxShadow: `0 10px 20px ${colors.shadow}`,
     transition: 'all 0.3s ease',
-  };
-
-  const projectImageStyle = {
-    width: '100%',
-    height: '200px',
-    objectFit: 'cover',
-    borderBottom: '1px solid #eee',
+    border: `1px solid ${colors.primary}20`,
   };
 
   const projectContentStyle = {
@@ -65,12 +118,13 @@ const Projects = () => {
     fontSize: '1.5rem',
     marginBottom: '0.75rem',
     fontWeight: '600',
+    color: '#000', // Changed to black
   };
 
   const projectDescriptionStyle = {
     fontSize: '1rem',
     marginBottom: '1rem',
-    color: '#666',
+    color: colors.subText,
     lineHeight: '1.6',
   };
 
@@ -82,8 +136,8 @@ const Projects = () => {
   };
 
   const techItemStyle = {
-    backgroundColor: '#e7f5ff',
-    color: '#1e3c72',
+    backgroundColor: `${colors.primary}20`,
+    color: colors.primary,
     padding: '0.3rem 0.7rem',
     borderRadius: '20px',
     fontSize: '0.8rem',
@@ -95,21 +149,12 @@ const Projects = () => {
     marginTop: '1rem',
     marginRight: '1rem',
     padding: '0.5rem 1rem',
-    backgroundColor: '#1e3c72',
+    backgroundColor: colors.primary,
     color: '#fff',
     borderRadius: '5px',
     textDecoration: 'none',
     fontWeight: '500',
     transition: 'all 0.3s ease',
-  };
-
-  // Mobile styles
-  const mobileStyles = {
-    '@media (max-width: 768px)': {
-      projectsGridStyle: {
-        gridTemplateColumns: '1fr',
-      },
-    },
   };
 
   const projects = [
@@ -162,25 +207,31 @@ const Projects = () => {
 
   return (
     <section className="section" style={sectionStyle}>
+      {/* Video Background - Same as in About component */}
+      <video
+        autoPlay
+        loop
+        muted
+        style={videoStyle}
+      >
+        <source src="../assets/bg.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <div style={overlayStyle}></div>
+
       <div style={containerStyle}>
         <motion.h2
           style={headingStyle}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.7 }}
         >
           My Projects
           <div style={headingAfterStyle}></div>
         </motion.h2>
 
-        <div 
-          style={
-            window.innerWidth > 768 
-              ? projectsGridStyle 
-              : mobileStyles['@media (max-width: 768px)'].projectsGridStyle
-          }
-        >
+        <div style={projectsGridStyle}>
           {projects.map((project, index) => (
             <motion.div
               key={project.id}
@@ -189,10 +240,9 @@ const Projects = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              whileHover={{ y: -10, boxShadow: '0 15px 30px rgba(0, 0, 0, 0.15)' }}
+              whileHover={{ y: -10, boxShadow: `0 15px 30px ${colors.shadow}` }}
               onClick={() => setActiveProject(activeProject === project.id ? null : project.id)}
             >
-              <img src={project.image} alt={project.title} style={projectImageStyle} />
               <div style={projectContentStyle}>
                 <h3 style={projectTitleStyle}>{project.title}</h3>
                 <p style={projectDescriptionStyle}>{project.description}</p>
@@ -207,7 +257,7 @@ const Projects = () => {
                   <a href={project.demoLink} target="_blank" rel="noopener noreferrer" style={projectLinkStyle}>
                     Live Demo
                   </a>
-                  <a href={project.codeLink} target="_blank" rel="noopener noreferrer" style={{...projectLinkStyle, backgroundColor: '#fff', color: '#1e3c72', border: '1px solid #1e3c72'}}>
+                  <a href={project.codeLink} target="_blank" rel="noopener noreferrer" style={{...projectLinkStyle, backgroundColor: 'transparent', color: colors.primary, border: `1px solid ${colors.primary}`}}>
                     View Code
                   </a>
                 </div>

@@ -6,7 +6,7 @@ const Achievements = () => {
   const sectionStyle = {
     minHeight: '100vh',
     padding: '6rem 2rem',
-    backgroundColor: '#f5f7fa',
+    backgroundColor: 'transparent', // Changed to transparent
     color: '#333',
   };
 
@@ -21,6 +21,7 @@ const Achievements = () => {
     textAlign: 'center',
     position: 'relative',
     paddingBottom: '1rem',
+    color: '#fff', // Changed title color to white
   };
 
   const headingAfterStyle = {
@@ -31,7 +32,7 @@ const Achievements = () => {
     transform: 'translateX(-50%)',
     width: '80px',
     height: '4px',
-    backgroundColor: '#1e3c72',
+    backgroundColor: '#ff9800', // Changed center line to a suitable color
   };
 
   const tabsContainerStyle = {
