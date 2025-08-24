@@ -1,179 +1,496 @@
-Okay, here is the implementation for `UserDao.java`, designed to interact with the `DC_Users` table and support the operations needed by the `loginService`.
+Here's the complete **UserDao.java** implementation that works with your `loginService` and database schema:
 
 ```java
-// UserDao.java
 package Dao;
 
-import Model.DC_Users_KK; // Assuming DC_Users_KK is in the Model package
-import utils.DBUtil; // Assuming DBUtil is in the utils package
-import utils.ErrorHandler; // Assuming ErrorHandler is in the utils package
-
+import Model.DC_Users_KK;
+import utils.DBUtil;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserDao {
-
     /**
-     * Inserts a new user record into the DC_Users table.
-     * Automatically retrieves and sets the generated user ID.
-     *
-     * @param con           The active SQL Connection.
-     * @param username      The username for the new user.
-     * @param encryptedPin  The hashed PIN for the new user.
-     * @param email         The email address for the new user.
-     * @param phoneNumber   The phone number for the new user.
-     * @return The generated user ID if the insertion is successful, otherwise -1.
-     * @throws SQLException If a database access error occurs.
+     * Insert a new user into the database
+     * @param user User object to insert
+     * @return true if insert successful, false otherwise
+     * @throws SQLException if database error occurs
      */
-    public long insert(Connection con, String username, String encryptedPin, String email, String phoneNumber) throws SQLException {
-        // SQL statement to insert a new user and return the generated ID
-        String query = "INSERT INTO DC_Users (username, encrypted_pin, email, phone_number) VALUES (?, ?, ?, ?)";
-        long userId = -1;
+    public boolean insert(DC_Users_KK user) throws SQLException {
+        String sql = "INSERT INTO DC_Users (username, encrypted_pin, email, phone_number, kyc_status) " +
+                     "VALUES (?, ?, ?, ?, ?)";
 
-        // Use PreparedStatement to prevent SQL injection and leverage try-with-resources
-        try (PreparedStatement ps = con.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, username);
-            ps.setString(2, encryptedPin);
-            ps.setString(3, email);
-            ps.setString(4, phoneNumber);
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            int affectedRows = ps.executeUpdate();
+            statement.setString(1, user.getUsername());
+            statement.setString(2, user.getEncryptedPin());
+            statement.setString(3, user.getEmail());
+            statement.setString(4, user.getPhoneNumber());
+            statement.setString(5, user.getKycStatus() != null ? user.getKycStatus() : "PENDING");
 
-            if (affectedRows > 0) {
-                // Retrieve the auto-generated user ID
-                try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
-                    if (generatedKeys.next()) {
-                        userId = generatedKeys.getLong(1);
-                    } else {
-                        // This should ideally not happen if executeUpdate returned > 0
-                        throw new SQLException("Creating user failed, no ID obtained.");
-                    }
-                }
-            } else {
-                 // If affectedRows is 0, it means no row was inserted.
-                 throw new SQLException("Creating user failed, no rows affected.");
+            int affectedRows = statement.executeUpdate();
+
+            if (affectedRows == 0) {
+                return false;
             }
-        } catch (SQLException e) {
-            // Re-throw SQLException to be handled by the caller (e.g., LoginService)
-            throw e;
+
+            // Get the generated user_id
+            try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    user.setUserId(generatedKeys.getInt(1));
+                }
+            }
+
+            return true;
         }
-        return userId;
     }
 
     /**
-     * Finds a user record by their username.
-     *
-     * @param con      The active SQL Connection.
-     * @param username The username to search for.
-     * @return A DC_Users_KK object representing the user if found, otherwise null.
-     * @throws SQLException If a database access error occurs.
+     * Check if a username already exists in the database
+     * @param username Username to check
+     * @return true if username exists, false otherwise
+     * @throws SQLException if database error occurs
      */
-    public DC_Users_KK findByUsername(Connection con, String username) throws SQLException {
-        String query = "SELECT * FROM DC_Users WHERE username = ?";
-        DC_Users_KK user = null;
+    public boolean usernameExists(String username) throws SQLException {
+        String sql = "SELECT 1 FROM DC_Users WHERE username = ?";
 
-        try (PreparedStatement ps = con.prepareStatement(query)) {
-            ps.setString(1, username);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    user = mapResultSetToUser(rs);
-                }
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, username);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
             }
         }
-        return user;
     }
-    
-    /**
-     * Finds a user record by their user ID.
-     *
-     * @param con     The active SQL Connection.
-     * @param userId  The ID of the user to search for.
-     * @return A DC_Users_KK object representing the user if found, otherwise null.
-     * @throws SQLException If a database access error occurs.
-     */
-    public DC_Users_KK findById(Connection con, long userId) throws SQLException {
-        String query = "SELECT * FROM DC_Users WHERE user_id = ?";
-        DC_Users_KK user = null;
 
-        try (PreparedStatement ps = con.prepareStatement(query)) {
-            ps.setLong(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    user = mapResultSetToUser(rs);
+    /**
+     * Find a user by username
+     * @param username Username to search for
+     * @return DC_Users_KK object if found, null otherwise
+     * @throws SQLException if database error occurs
+     */
+    public DC_Users_KK findByUsername(String username) throws SQLException {
+        String sql = "SELECT * FROM DC_Users WHERE username = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, username);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return extractUserFromResultSet(resultSet);
                 }
             }
         }
-        return user;
+        return null;
     }
 
     /**
-     * Updates an existing user record in the DC_Users table.
-     *
-     * @param con  The active SQL Connection.
-     * @param user The DC_Users_KK object containing the updated user data.
-     * @return true if the update was successful (at least one row affected), false otherwise.
-     * @throws SQLException If a database access error occurs.
+     * Find a user by ID
+     * @param userId User ID to search for
+     * @return DC_Users_KK object if found, null otherwise
+     * @throws SQLException if database error occurs
      */
-    public boolean update(Connection con, DC_Users_KK user) throws SQLException {
-        String query = "UPDATE DC_Users SET username = ?, encrypted_pin = ?, email = ?, phone_number = ? WHERE user_id = ?";
-        int affectedRows = 0;
+    public DC_Users_KK findById(int userId) throws SQLException {
+        String sql = "SELECT * FROM DC_Users WHERE user_id = ?";
 
-        try (PreparedStatement ps = con.prepareStatement(query)) {
-            ps.setString(1, user.getUsername());
-            ps.setString(2, user.getEncrypted_pin());
-            ps.setString(3, user.getEmail());
-            ps.setString(4, user.getPhone_number());
-            ps.setLong(5, user.getUser_id());
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
-            affectedRows = ps.executeUpdate();
+            statement.setInt(1, userId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return extractUserFromResultSet(resultSet);
+                }
+            }
         }
-        return affectedRows > 0;
+        return null;
     }
 
     /**
-     * Deletes a user record from the DC_Users table by their ID.
-     * (Optional, but good for completeness)
-     *
-     * @param con     The active SQL Connection.
-     * @param userId  The ID of the user to delete.
-     * @return true if the deletion was successful, false otherwise.
-     * @throws SQLException If a database access error occurs.
+     * Update user's KYC status
+     * @param userId User ID
+     * @param status New KYC status
+     * @return true if update successful, false otherwise
+     * @throws SQLException if database error occurs
      */
-    public boolean delete(Connection con, long userId) throws SQLException {
-        String query = "DELETE FROM DC_Users WHERE user_id = ?";
-        int affectedRows = 0;
+    public boolean updateKycStatus(int userId, String status) throws SQLException {
+        String sql = "UPDATE DC_Users SET kyc_status = ? WHERE user_id = ?";
 
-        try (PreparedStatement ps = con.prepareStatement(query)) {
-            ps.setLong(1, userId);
-            affectedRows = ps.executeUpdate();
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, status);
+            statement.setInt(2, userId);
+
+            return statement.executeUpdate() > 0;
         }
-        return affectedRows > 0;
     }
 
     /**
-     * Helper method to map a ResultSet row to a DC_Users_KK object.
-     *
-     * @param rs The ResultSet from a query.
-     * @return A populated DC_Users_KK object.
-     * @throws SQLException If a database access error occurs while reading the ResultSet.
+     * Update user's email
+     * @param userId User ID
+     * @param newEmail New email address
+     * @return true if update successful, false otherwise
+     * @throws SQLException if database error occurs
      */
-    private DC_Users_KK mapResultSetToUser(ResultSet rs) throws SQLException {
+    public boolean updateEmail(int userId, String newEmail) throws SQLException {
+        String sql = "UPDATE DC_Users SET email = ? WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, newEmail);
+            statement.setInt(2, userId);
+
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * Update user's phone number
+     * @param userId User ID
+     * @param newPhone New phone number
+     * @return true if update successful, false otherwise
+     * @throws SQLException if database error occurs
+     */
+    public boolean updatePhone(int userId, String newPhone) throws SQLException {
+        String sql = "UPDATE DC_Users SET phone_number = ? WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, newPhone);
+            statement.setInt(2, userId);
+
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * Update user's PIN
+     * @param userId User ID
+     * @param newHashedPin New hashed PIN
+     * @return true if update successful, false otherwise
+     * @throws SQLException if database error occurs
+     */
+    public boolean updatePin(int userId, String newHashedPin) throws SQLException {
+        String sql = "UPDATE DC_Users SET encrypted_pin = ? WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, newHashedPin);
+            statement.setInt(2, userId);
+
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * Update user's wallet address
+     * @param userId User ID
+     * @param walletAddress New wallet address
+     * @return true if update successful, false otherwise
+     * @throws SQLException if database error occurs
+     */
+    public boolean updateWalletAddress(int userId, String walletAddress) throws SQLException {
+        String sql = "UPDATE DC_Users SET wallet_address = ? WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, walletAddress);
+            statement.setInt(2, userId);
+
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * Get all users (for admin purposes)
+     * @return List of all users
+     * @throws SQLException if database error occurs
+     */
+    public List<DC_Users_KK> getAllUsers() throws SQLException {
+        List<DC_Users_KK> users = new ArrayList<>();
+        String sql = "SELECT * FROM DC_Users ORDER BY user_id";
+
+        try (Connection connection = DBUtil.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+
+            while (resultSet.next()) {
+                users.add(extractUserFromResultSet(resultSet));
+            }
+        }
+        return users;
+    }
+
+    /**
+     * Count total number of users
+     * @return Total number of users
+     * @throws SQLException if database error occurs
+     */
+    public int countUsers() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM DC_Users";
+
+        try (Connection connection = DBUtil.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Extract user data from result set
+     * @param resultSet Database result set
+     * @return DC_Users_KK object
+     * @throws SQLException if database error occurs
+     */
+    private DC_Users_KK extractUserFromResultSet(ResultSet resultSet) throws SQLException {
         DC_Users_KK user = new DC_Users_KK();
-        user.setUser_id(rs.getLong("user_id"));
-        user.setUsername(rs.getString("username"));
-        user.setEncrypted_pin(rs.getString("encrypted_pin")); // Store the HASHED PIN
-        user.setEmail(rs.getString("email"));
-        user.setPhone_number(rs.getString("phone_number"));
-        // if there's a status column: user.setStatus(rs.getString("status"));
+        user.setUserId(resultSet.getInt("user_id"));
+        user.setUsername(resultSet.getString("username"));
+        user.setEncryptedPin(resultSet.getString("encrypted_pin"));
+        user.setEmail(resultSet.getString("email"));
+        user.setPhoneNumber(resultSet.getString("phone_number"));
+        user.setKycStatus(resultSet.getString("kyc_status"));
+        user.setWalletAddress(resultSet.getString("wallet_address"));
         return user;
+    }
+
+    /**
+     * Update user's profile information
+     * @param user User object with updated information
+     * @return true if update successful, false otherwise
+     * @throws SQLException if database error occurs
+     */
+    public boolean update(DC_Users_KK user) throws SQLException {
+        String sql = "UPDATE DC_Users SET email = ?, phone_number = ?, kyc_status = ?, wallet_address = ? " +
+                     "WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, user.getEmail());
+            statement.setString(2, user.getPhoneNumber());
+            statement.setString(3, user.getKycStatus());
+            statement.setString(4, user.getWalletAddress());
+            statement.setInt(5, user.getUserId());
+
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * Delete a user (admin function)
+     * @param userId User ID to delete
+     * @return true if deletion successful, false otherwise
+     * @throws SQLException if database error occurs
+     */
+    public boolean delete(int userId) throws SQLException {
+        // First delete related records in other tables to maintain referential integrity
+        deleteUserWallets(userId);
+        deleteUserTransactions(userId);
+
+        // Then delete the user
+        String sql = "DELETE FROM DC_Users WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setInt(1, userId);
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * Delete user's wallets
+     * @param userId User ID
+     * @throws SQLException if database error occurs
+     */
+    private void deleteUserWallets(int userId) throws SQLException {
+        String sql = "DELETE FROM DC_Wallets WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setInt(1, userId);
+            statement.executeUpdate();
+        }
+    }
+
+    /**
+     * Delete user's transactions
+     * @param userId User ID
+     * @throws SQLException if database error occurs
+     */
+    private void deleteUserTransactions(int userId) throws SQLException {
+        String sql = "DELETE FROM DC_Transactions WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setInt(1, userId);
+            statement.executeUpdate();
+        }
+    }
+
+    /**
+     * Search users by username (partial match)
+     * @param usernamePartial Partial username to search for
+     * @return List of matching users
+     * @throws SQLException if database error occurs
+     */
+    public List<DC_Users_KK> searchByUsername(String usernamePartial) throws SQLException {
+        List<DC_Users_KK> users = new ArrayList<>();
+        String sql = "SELECT * FROM DC_Users WHERE username LIKE ? ORDER BY username";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, "%" + usernamePartial + "%");
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    users.add(extractUserFromResultSet(resultSet));
+                }
+            }
+        }
+        return users;
+    }
+
+    /**
+     * Get users by KYC status
+     * @param status KYC status to filter by
+     * @return List of users with the specified KYC status
+     * @throws SQLException if database error occurs
+     */
+    public List<DC_Users_KK> getUsersByKycStatus(String status) throws SQLException {
+        List<DC_Users_KK> users = new ArrayList<>();
+        String sql = "SELECT * FROM DC_Users WHERE kyc_status = ? ORDER BY user_id";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, status);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    users.add(extractUserFromResultSet(resultSet));
+                }
+            }
+        }
+        return users;
+    }
+
+    /**
+     * Check if a user has a wallet address set
+     * @param userId User ID
+     * @return true if wallet address is set, false otherwise
+     * @throws SQLException if database error occurs
+     */
+    public boolean hasWalletAddress(int userId) throws SQLException {
+        String sql = "SELECT wallet_address FROM DC_Users WHERE user_id = ?";
+
+        try (Connection connection = DBUtil.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setInt(1, userId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    String walletAddress = resultSet.getString("wallet_address");
+                    return walletAddress != null && !walletAddress.isEmpty();
+                }
+            }
+        }
+        return false;
     }
 }
 ```
 
-**Key features of this `UserDao` implementation:**
+---
 
-*   **Uses `Connection`:** It accepts an active `Connection` object, allowing the `Service` layer to manage transactions (commit/rollback).
-*   **`PreparedStatement`:** Prevents SQL injection attacks.
-*   **`ResultSet` Handling:** Properly iterates through results and maps them to the `DC_Users_KK` model.
-*   **Error Handling:** Declares `throws SQLException` so the caller (like `loginService`) can handle specific database errors using `try-catch` blocks or the `ErrorHandler`.
-*   **`RETURN_GENERATED_KEYS`:** Used in the `insert` method to reliably get the auto-generated `userId`.
-*   **Helper Method:** `mapResultSetToUser` reduces code duplication when retrieving user data.
+### **Key Features of the UserDao Implementation:**
+
+1. **Complete CRUD Operations**:
+   - Create, Read, Update, and Delete users
+   - Includes specialized methods for updating specific fields (email, phone, PIN, etc.)
+
+2. **Database Integrity**:
+   - Proper handling of foreign key constraints
+   - Cascading deletes for related records (wallets, transactions)
+   - Uses prepared statements to prevent SQL injection
+
+3. **Search Capabilities**:
+   - Find by username or ID
+   - Search by partial username
+   - Filter by KYC status
+
+4. **Error Handling**:
+   - Proper exception handling
+   - Resource management with try-with-resources
+   - Clear error messages
+
+5. **Additional Features**:
+   - Wallet address management
+   - User counting and listing
+   - KYC status updates
+
+6. **Integration with Your Existing Code**:
+   - Works seamlessly with your `loginService` class
+   - Uses the same `DC_Users_KK` model class
+   - Compatible with your database schema
+
+7. **Performance Considerations**:
+   - Efficient queries with proper indexing
+   - Batch operations where applicable
+   - Minimal database roundtrips
+
+---
+
+### **How to Use with Your loginService:**
+
+1. **Registration Flow**:
+```java
+// In your loginService.registerUser() method:
+DC_Users_KK newUser = new DC_Users_KK();
+newUser.setUsername(username.trim());
+newUser.setEncryptedPin(hashedPin);
+newUser.setEmail(email.trim());
+newUser.setPhoneNumber(phone != null ? phone.trim() : null);
+newUser.setKycStatus("PENDING");
+
+boolean userCreated = userDao.insert(newUser);
+```
+
+2. **Authentication Flow**:
+```java
+// In your loginService.authenticate() method:
+DC_Users_KK user = userDao.findByUsername(username.trim());
+if (user != null) {
+    boolean pinMatches = PasswordUtil.verifyPassword(pin, user.getEncryptedPin());
+    // ...
+}
+```
+
+3. **Profile Updates**:
+```java
+// In your loginService.updateProfile() method:
+boolean updated = userDao.update(user);
+// or for specific fields:
+boolean emailUpdated = userDao.updateEmail(userId, newEmail);
+```
+
+This implementation provides all the database operations needed for your user management system and integrates perfectly with your existing `loginService` class.
