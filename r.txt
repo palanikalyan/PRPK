@@ -1,651 +1,179 @@
-// ================================
-// LOGIN SERVICE IMPLEMENTATION
-// ================================
+Okay, here is the implementation for `UserDao.java`, designed to interact with the `DC_Users` table and support the operations needed by the `loginService`.
 
-// loginService.java
-package Service;
+```java
+// UserDao.java
+package Dao;
 
-import Dao.UserDao;
-import Model.DC_Users_KK;
-import utils.PasswordUtil;
+import Model.DC_Users_KK; // Assuming DC_Users_KK is in the Model package
+import utils.DBUtil; // Assuming DBUtil is in the utils package
+import utils.ErrorHandler; // Assuming ErrorHandler is in the utils package
 
-public class loginService {
-    private UserDao userDao;
-    private WalletService walletService;
-    
-    public loginService() {
-        this.userDao = new UserDao();
-        this.walletService = new WalletService();
-    }
-    
+import java.sql.*;
+
+public class UserDao {
+
     /**
-     * Register a new user with username, PIN, email, and phone
-     * @param username - unique username
-     * @param pin - user's PIN (4-6 digits)
-     * @param email - user's email address
-     * @param phone - user's phone number
-     * @return true if registration successful, false otherwise
+     * Inserts a new user record into the DC_Users table.
+     * Automatically retrieves and sets the generated user ID.
+     *
+     * @param con           The active SQL Connection.
+     * @param username      The username for the new user.
+     * @param encryptedPin  The hashed PIN for the new user.
+     * @param email         The email address for the new user.
+     * @param phoneNumber   The phone number for the new user.
+     * @return The generated user ID if the insertion is successful, otherwise -1.
+     * @throws SQLException If a database access error occurs.
      */
-    public boolean registerUser(String username, String pin, String email, String phone) {
-        try {
-            // Validate input
-            if (username == null || username.trim().isEmpty()) {
-                System.out.println("Username cannot be empty.");
-                return false;
-            }
-            
-            if (!isValidPin(pin)) {
-                System.out.println("PIN must be 4-6 digits.");
-                return false;
-            }
-            
-            if (email == null || email.trim().isEmpty()) {
-                System.out.println("Email cannot be empty.");
-                return false;
-            }
-            
-            // Check if username already exists
-            DC_Users_KK existingUser = userDao.findByUsername(username.trim());
-            if (existingUser != null) {
-                System.out.println("Username already exists. Please choose a different username.");
-                return false;
-            }
-            
-            // Hash the PIN for security
-            String hashedPin = PasswordUtil.hashPassword(pin);
-            
-            // Create new user object
-            DC_Users_KK newUser = new DC_Users_KK();
-            newUser.setUsername(username.trim());
-            newUser.setEncryptedPin(hashedPin);
-            newUser.setEmail(email.trim());
-            newUser.setPhoneNumber(phone != null ? phone.trim() : null);
-            
-            // Insert user into database
-            boolean userCreated = userDao.insert(newUser);
-            
-            if (userCreated) {
-                // Get the created user to obtain the user_id
-                DC_Users_KK createdUser = userDao.findByUsername(username.trim());
-                if (createdUser != null) {
-                    // Create default wallets for the new user
-                    boolean walletsCreated = walletService.createDefaultWallets(createdUser.getUserId());
-                    if (walletsCreated) {
-                        System.out.println("User registered successfully! Default USD and BTC wallets created.");
-                        return true;
+    public long insert(Connection con, String username, String encryptedPin, String email, String phoneNumber) throws SQLException {
+        // SQL statement to insert a new user and return the generated ID
+        String query = "INSERT INTO DC_Users (username, encrypted_pin, email, phone_number) VALUES (?, ?, ?, ?)";
+        long userId = -1;
+
+        // Use PreparedStatement to prevent SQL injection and leverage try-with-resources
+        try (PreparedStatement ps = con.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, username);
+            ps.setString(2, encryptedPin);
+            ps.setString(3, email);
+            ps.setString(4, phoneNumber);
+
+            int affectedRows = ps.executeUpdate();
+
+            if (affectedRows > 0) {
+                // Retrieve the auto-generated user ID
+                try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        userId = generatedKeys.getLong(1);
                     } else {
-                        System.out.println("User created but failed to create default wallets.");
-                        return false;
+                        // This should ideally not happen if executeUpdate returned > 0
+                        throw new SQLException("Creating user failed, no ID obtained.");
                     }
-                } else {
-                    System.out.println("User created but unable to retrieve user details.");
-                    return false;
                 }
             } else {
-                System.out.println("Failed to create user account.");
-                return false;
+                 // If affectedRows is 0, it means no row was inserted.
+                 throw new SQLException("Creating user failed, no rows affected.");
             }
-            
-        } catch (Exception e) {
-            System.err.println("Error during user registration: " + e.getMessage());
-            e.printStackTrace();
-            return false;
+        } catch (SQLException e) {
+            // Re-throw SQLException to be handled by the caller (e.g., LoginService)
+            throw e;
         }
+        return userId;
+    }
+
+    /**
+     * Finds a user record by their username.
+     *
+     * @param con      The active SQL Connection.
+     * @param username The username to search for.
+     * @return A DC_Users_KK object representing the user if found, otherwise null.
+     * @throws SQLException If a database access error occurs.
+     */
+    public DC_Users_KK findByUsername(Connection con, String username) throws SQLException {
+        String query = "SELECT * FROM DC_Users WHERE username = ?";
+        DC_Users_KK user = null;
+
+        try (PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, username);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    user = mapResultSetToUser(rs);
+                }
+            }
+        }
+        return user;
     }
     
     /**
-     * Authenticate user with username and PIN
-     * @param username - user's username
-     * @param pin - user's PIN
-     * @return user ID if authentication successful, -1 otherwise
+     * Finds a user record by their user ID.
+     *
+     * @param con     The active SQL Connection.
+     * @param userId  The ID of the user to search for.
+     * @return A DC_Users_KK object representing the user if found, otherwise null.
+     * @throws SQLException If a database access error occurs.
      */
-    public int authenticate(String username, String pin) {
-        try {
-            // Validate input
-            if (username == null || username.trim().isEmpty()) {
-                System.out.println("Username cannot be empty.");
-                return -1;
+    public DC_Users_KK findById(Connection con, long userId) throws SQLException {
+        String query = "SELECT * FROM DC_Users WHERE user_id = ?";
+        DC_Users_KK user = null;
+
+        try (PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setLong(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    user = mapResultSetToUser(rs);
+                }
             }
-            
-            if (pin == null || pin.trim().isEmpty()) {
-                System.out.println("PIN cannot be empty.");
-                return -1;
-            }
-            
-            // Find user by username
-            DC_Users_KK user = userDao.findByUsername(username.trim());
-            
-            if (user == null) {
-                System.out.println("User not found.");
-                return -1;
-            }
-            
-            // Verify PIN
-            boolean pinMatches = PasswordUtil.verifyPassword(pin, user.getEncryptedPin());
-            
-            if (pinMatches) {
-                System.out.println("Authentication successful!");
-                return user.getUserId();
-            } else {
-                System.out.println("Invalid PIN.");
-                return -1;
-            }
-            
-        } catch (Exception e) {
-            System.err.println("Error during authentication: " + e.getMessage());
-            e.printStackTrace();
-            return -1;
         }
+        return user;
     }
-    
+
     /**
-     * Update user profile information
-     * @param userId - user's ID
-     * @param email - new email (optional)
-     * @param phone - new phone (optional)
-     * @return true if update successful, false otherwise
+     * Updates an existing user record in the DC_Users table.
+     *
+     * @param con  The active SQL Connection.
+     * @param user The DC_Users_KK object containing the updated user data.
+     * @return true if the update was successful (at least one row affected), false otherwise.
+     * @throws SQLException If a database access error occurs.
      */
-    public boolean updateProfile(int userId, String email, String phone) {
-        try {
-            DC_Users_KK user = userDao.findById(userId);
-            if (user == null) {
-                System.out.println("User not found.");
-                return false;
-            }
-            
-            if (email != null && !email.trim().isEmpty()) {
-                user.setEmail(email.trim());
-            }
-            
-            if (phone != null && !phone.trim().isEmpty()) {
-                user.setPhoneNumber(phone.trim());
-            }
-            
-            return userDao.update(user);
-            
-        } catch (Exception e) {
-            System.err.println("Error updating profile: " + e.getMessage());
-            return false;
+    public boolean update(Connection con, DC_Users_KK user) throws SQLException {
+        String query = "UPDATE DC_Users SET username = ?, encrypted_pin = ?, email = ?, phone_number = ? WHERE user_id = ?";
+        int affectedRows = 0;
+
+        try (PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, user.getUsername());
+            ps.setString(2, user.getEncrypted_pin());
+            ps.setString(3, user.getEmail());
+            ps.setString(4, user.getPhone_number());
+            ps.setLong(5, user.getUser_id());
+
+            affectedRows = ps.executeUpdate();
         }
+        return affectedRows > 0;
     }
-    
+
     /**
-     * Change user PIN
-     * @param userId - user's ID
-     * @param oldPin - current PIN
-     * @param newPin - new PIN
-     * @return true if PIN changed successfully, false otherwise
+     * Deletes a user record from the DC_Users table by their ID.
+     * (Optional, but good for completeness)
+     *
+     * @param con     The active SQL Connection.
+     * @param userId  The ID of the user to delete.
+     * @return true if the deletion was successful, false otherwise.
+     * @throws SQLException If a database access error occurs.
      */
-    public boolean changePin(int userId, String oldPin, String newPin) {
-        try {
-            DC_Users_KK user = userDao.findById(userId);
-            if (user == null) {
-                System.out.println("User not found.");
-                return false;
-            }
-            
-            // Verify old PIN
-            boolean oldPinMatches = PasswordUtil.verifyPassword(oldPin, user.getEncryptedPin());
-            if (!oldPinMatches) {
-                System.out.println("Current PIN is incorrect.");
-                return false;
-            }
-            
-            // Validate new PIN
-            if (!isValidPin(newPin)) {
-                System.out.println("New PIN must be 4-6 digits.");
-                return false;
-            }
-            
-            // Hash new PIN and update
-            String hashedNewPin = PasswordUtil.hashPassword(newPin);
-            user.setEncryptedPin(hashedNewPin);
-            
-            boolean updated = userDao.update(user);
-            if (updated) {
-                System.out.println("PIN changed successfully!");
-                return true;
-            } else {
-                System.out.println("Failed to update PIN.");
-                return false;
-            }
-            
-        } catch (Exception e) {
-            System.err.println("Error changing PIN: " + e.getMessage());
-            return false;
+    public boolean delete(Connection con, long userId) throws SQLException {
+        String query = "DELETE FROM DC_Users WHERE user_id = ?";
+        int affectedRows = 0;
+
+        try (PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setLong(1, userId);
+            affectedRows = ps.executeUpdate();
         }
+        return affectedRows > 0;
     }
-    
+
     /**
-     * Get user profile information
-     * @param userId - user's ID
-     * @return User object or null if not found
+     * Helper method to map a ResultSet row to a DC_Users_KK object.
+     *
+     * @param rs The ResultSet from a query.
+     * @return A populated DC_Users_KK object.
+     * @throws SQLException If a database access error occurs while reading the ResultSet.
      */
-    public DC_Users_KK getUserProfile(int userId) {
-        try {
-            return userDao.findById(userId);
-        } catch (Exception e) {
-            System.err.println("Error retrieving user profile: " + e.getMessage());
-            return null;
-        }
-    }
-    
-    /**
-     * Validate PIN format
-     * @param pin - PIN to validate
-     * @return true if PIN is valid (4-6 digits), false otherwise
-     */
-    private boolean isValidPin(String pin) {
-        if (pin == null) return false;
-        return pin.matches("\\d{4,6}");
-    }
-    
-    /**
-     * Check if user exists
-     * @param username - username to check
-     * @return true if user exists, false otherwise
-     */
-    public boolean userExists(String username) {
-        try {
-            return userDao.findByUsername(username) != null;
-        } catch (Exception e) {
-            System.err.println("Error checking if user exists: " + e.getMessage());
-            return false;
-        }
+    private DC_Users_KK mapResultSetToUser(ResultSet rs) throws SQLException {
+        DC_Users_KK user = new DC_Users_KK();
+        user.setUser_id(rs.getLong("user_id"));
+        user.setUsername(rs.getString("username"));
+        user.setEncrypted_pin(rs.getString("encrypted_pin")); // Store the HASHED PIN
+        user.setEmail(rs.getString("email"));
+        user.setPhone_number(rs.getString("phone_number"));
+        // if there's a status column: user.setStatus(rs.getString("status"));
+        return user;
     }
 }
+```
 
-// ================================
-// APP CONFIGURATION CLASS
-// ================================
+**Key features of this `UserDao` implementation:**
 
-// AppConfig.java
-package utils;
-
-import java.io.*;
-import java.math.BigDecimal;
-import java.util.Properties;
-
-public class AppConfig {
-    private static final String CONFIG_FILE = "application.properties";
-    private static Properties config;
-    private static AppConfig instance;
-    
-    // Private constructor for singleton pattern
-    private AppConfig() {
-        loadConfiguration();
-    }
-    
-    // Singleton instance getter
-    public static AppConfig getInstance() {
-        if (instance == null) {
-            instance = new AppConfig();
-        }
-        return instance;
-    }
-    
-    /**
-     * Load configuration from properties file or set defaults
-     */
-    private void loadConfiguration() {
-        config = new Properties();
-        
-        // Set default configuration values
-        setDefaultProperties();
-        
-        // Try to load from file
-        try (InputStream input = getClass().getClassLoader().getResourceAsStream(CONFIG_FILE)) {
-            if (input != null) {
-                config.load(input);
-                System.out.println("Configuration loaded from " + CONFIG_FILE);
-            } else {
-                System.out.println("Configuration file not found. Using default values.");
-                saveConfiguration(); // Save defaults to file
-            }
-        } catch (IOException e) {
-            System.err.println("Error loading configuration: " + e.getMessage());
-            System.out.println("Using default configuration values.");
-        }
-    }
-    
-    /**
-     * Set default configuration properties
-     */
-    private void setDefaultProperties() {
-        // Application Information
-        config.setProperty("app.name", "Crypto Trading Platform");
-        config.setProperty("app.version", "1.0.0");
-        config.setProperty("app.author", "KK Development Team");
-        config.setProperty("app.description", "A CLI-based cryptocurrency trading simulator");
-        
-        // Database Configuration
-        config.setProperty("db.url", "jdbc:mysql://localhost:3306/crypto_trading");
-        config.setProperty("db.username", "root");
-        config.setProperty("db.password", "password");
-        config.setProperty("db.driver", "com.mysql.cj.jdbc.Driver");
-        config.setProperty("db.connection.pool.size", "10");
-        config.setProperty("db.connection.timeout", "30000");
-        
-        // Trading Configuration
-        config.setProperty("trading.default.btc.rate", "45000.00");
-        config.setProperty("trading.default.eth.rate", "3000.00");
-        config.setProperty("trading.default.ltc.rate", "100.00");
-        config.setProperty("trading.fee.percentage", "0.001"); // 0.1%
-        config.setProperty("trading.min.transaction.amount", "0.00000001");
-        config.setProperty("trading.max.transaction.amount", "1000000.00");
-        
-        // Security Configuration
-        config.setProperty("security.pin.min.length", "4");
-        config.setProperty("security.pin.max.length", "6");
-        config.setProperty("security.session.timeout", "1800000"); // 30 minutes in milliseconds
-        config.setProperty("security.max.login.attempts", "3");
-        config.setProperty("security.password.salt.rounds", "12");
-        
-        // API Configuration (for future use)
-        config.setProperty("api.coingecko.url", "https://api.coingecko.com/api/v3");
-        config.setProperty("api.binance.url", "https://api.binance.com/api/v3");
-        config.setProperty("api.rate.limit.requests.per.minute", "60");
-        config.setProperty("api.timeout", "5000");
-        
-        // Logging Configuration
-        config.setProperty("logging.level", "INFO");
-        config.setProperty("logging.file.path", "logs/application.log");
-        config.setProperty("logging.max.file.size", "10MB");
-        config.setProperty("logging.max.files", "5");
-        
-        // UI Configuration
-        config.setProperty("ui.cli.prompt.symbol", "> ");
-        config.setProperty("ui.cli.welcome.message", "Welcome to Crypto Trading Platform!");
-        config.setProperty("ui.cli.display.colors", "true");
-        config.setProperty("ui.cli.table.width", "80");
-        
-        // Feature Flags
-        config.setProperty("features.blockchain.integration", "false");
-        config.setProperty("features.smart.contracts", "false");
-        config.setProperty("features.kyc.verification", "false");
-        config.setProperty("features.email.notifications", "false");
-        config.setProperty("features.sms.notifications", "false");
-        config.setProperty("features.live.rates", "false");
-    }
-    
-    /**
-     * Save current configuration to file
-     */
-    public void saveConfiguration() {
-        try (OutputStream output = new FileOutputStream(CONFIG_FILE)) {
-            config.store(output, "Crypto Trading Platform Configuration");
-            System.out.println("Configuration saved to " + CONFIG_FILE);
-        } catch (IOException e) {
-            System.err.println("Error saving configuration: " + e.getMessage());
-        }
-    }
-    
-    /**
-     * Get string property value
-     * @param key - property key
-     * @return property value or null if not found
-     */
-    public static String getProperty(String key) {
-        return config.getProperty(key);
-    }
-    
-    /**
-     * Get string property with default value
-     * @param key - property key
-     * @param defaultValue - default value if key not found
-     * @return property value or default value
-     */
-    public static String getProperty(String key, String defaultValue) {
-        return config.getProperty(key, defaultValue);
-    }
-    
-    /**
-     * Get BigDecimal property value
-     * @param key - property key
-     * @return BigDecimal value or null if not found or invalid
-     */
-    public static BigDecimal getBigDecimalProperty(String key) {
-        String value = config.getProperty(key);
-        if (value != null) {
-            try {
-                return new BigDecimal(value);
-            } catch (NumberFormatException e) {
-                System.err.println("Invalid BigDecimal value for key: " + key);
-            }
-        }
-        return null;
-    }
-    
-    /**
-     * Get BigDecimal property with default value
-     * @param key - property key
-     * @param defaultValue - default BigDecimal value
-     * @return BigDecimal value or default value
-     */
-    public static BigDecimal getBigDecimalProperty(String key, BigDecimal defaultValue) {
-        BigDecimal value = getBigDecimalProperty(key);
-        return value != null ? value : defaultValue;
-    }
-    
-    /**
-     * Get integer property value
-     * @param key - property key
-     * @return integer value or 0 if not found or invalid
-     */
-    public static int getIntProperty(String key) {
-        String value = config.getProperty(key);
-        if (value != null) {
-            try {
-                return Integer.parseInt(value);
-            } catch (NumberFormatException e) {
-                System.err.println("Invalid integer value for key: " + key);
-            }
-        }
-        return 0;
-    }
-    
-    /**
-     * Get integer property with default value
-     * @param key - property key
-     * @param defaultValue - default integer value
-     * @return integer value or default value
-     */
-    public static int getIntProperty(String key, int defaultValue) {
-        String value = config.getProperty(key);
-        if (value != null) {
-            try {
-                return Integer.parseInt(value);
-            } catch (NumberFormatException e) {
-                System.err.println("Invalid integer value for key: " + key);
-            }
-        }
-        return defaultValue;
-    }
-    
-    /**
-     * Get boolean property value
-     * @param key - property key
-     * @return boolean value or false if not found
-     */
-    public static boolean getBooleanProperty(String key) {
-        String value = config.getProperty(key);
-        return "true".equalsIgnoreCase(value);
-    }
-    
-    /**
-     * Get boolean property with default value
-     * @param key - property key
-     * @param defaultValue - default boolean value
-     * @return boolean value or default value
-     */
-    public static boolean getBooleanProperty(String key, boolean defaultValue) {
-        String value = config.getProperty(key);
-        if (value != null) {
-            return "true".equalsIgnoreCase(value);
-        }
-        return defaultValue;
-    }
-    
-    /**
-     * Set property value
-     * @param key - property key
-     * @param value - property value
-     */
-    public static void setProperty(String key, String value) {
-        config.setProperty(key, value);
-    }
-    
-    /**
-     * Get all properties
-     * @return Properties object
-     */
-    public static Properties getAllProperties() {
-        return new Properties(config);
-    }
-    
-    /**
-     * Print all configuration properties (for debugging)
-     */
-    public static void printConfiguration() {
-        System.out.println("\n=== APPLICATION CONFIGURATION ===");
-        config.entrySet().stream()
-              .sorted((e1, e2) -> e1.getKey().toString().compareTo(e2.getKey().toString()))
-              .forEach(entry -> System.out.printf("%-40s = %s%n", entry.getKey(), entry.getValue()));
-        System.out.println("=====================================\n");
-    }
-    
-    /**
-     * Reload configuration from file
-     */
-    public void reloadConfiguration() {
-        loadConfiguration();
-        System.out.println("Configuration reloaded successfully.");
-    }
-    
-    /**
-     * Check if a property exists
-     * @param key - property key
-     * @return true if property exists, false otherwise
-     */
-    public static boolean hasProperty(String key) {
-        return config.containsKey(key);
-    }
-    
-    /**
-     * Remove a property
-     * @param key - property key to remove
-     */
-    public static void removeProperty(String key) {
-        config.remove(key);
-    }
-    
-    // Convenience methods for commonly used properties
-    
-    public static String getAppName() {
-        return getProperty("app.name", "Crypto Trading Platform");
-    }
-    
-    public static String getAppVersion() {
-        return getProperty("app.version", "1.0.0");
-    }
-    
-    public static BigDecimal getDefaultBTCRate() {
-        return getBigDecimalProperty("trading.default.btc.rate", new BigDecimal("45000.00"));
-    }
-    
-    public static BigDecimal getDefaultETHRate() {
-        return getBigDecimalProperty("trading.default.eth.rate", new BigDecimal("3000.00"));
-    }
-    
-    public static BigDecimal getTradingFeePercentage() {
-        return getBigDecimalProperty("trading.fee.percentage", new BigDecimal("0.001"));
-    }
-    
-    public static int getMinPinLength() {
-        return getIntProperty("security.pin.min.length", 4);
-    }
-    
-    public static int getMaxPinLength() {
-        return getIntProperty("security.pin.max.length", 6);
-    }
-    
-    public static long getSessionTimeout() {
-        return Long.parseLong(getProperty("security.session.timeout", "1800000"));
-    }
-    
-    public static String getDatabaseUrl() {
-        return getProperty("db.url", "jdbc:mysql://localhost:3306/crypto_trading");
-    }
-    
-    public static String getDatabaseUsername() {
-        return getProperty("db.username", "root");
-    }
-    
-    public static String getDatabasePassword() {
-        return getProperty("db.password", "password");
-    }
-}
-
-// ================================
-// SAMPLE APPLICATION.PROPERTIES FILE
-// ================================
-
-/*
-# application.properties
-# Crypto Trading Platform Configuration File
-
-# Application Information
-app.name=Crypto Trading Platform
-app.version=1.0.0
-app.author=KK Development Team
-app.description=A CLI-based cryptocurrency trading simulator
-
-# Database Configuration
-db.url=jdbc:mysql://localhost:3306/crypto_trading
-db.username=root
-db.password=password
-db.driver=com.mysql.cj.jdbc.Driver
-db.connection.pool.size=10
-db.connection.timeout=30000
-
-# Trading Configuration
-trading.default.btc.rate=45000.00
-trading.default.eth.rate=3000.00
-trading.default.ltc.rate=100.00
-trading.fee.percentage=0.001
-trading.min.transaction.amount=0.00000001
-trading.max.transaction.amount=1000000.00
-
-# Security Configuration
-security.pin.min.length=4
-security.pin.max.length=6
-security.session.timeout=1800000
-security.max.login.attempts=3
-security.password.salt.rounds=12
-
-# API Configuration
-api.coingecko.url=https://api.coingecko.com/api/v3
-api.binance.url=https://api.binance.com/api/v3
-api.rate.limit.requests.per.minute=60
-api.timeout=5000
-
-# Logging Configuration
-logging.level=INFO
-logging.file.path=logs/application.log
-logging.max.file.size=10MB
-logging.max.files=5
-
-# UI Configuration
-ui.cli.prompt.symbol=> 
-ui.cli.welcome.message=Welcome to Crypto Trading Platform!
-ui.cli.display.colors=true
-ui.cli.table.width=80
-
-# Feature Flags
-features.blockchain.integration=false
-features.smart.contracts=false
-features.kyc.verification=false
-features.email.notifications=false
-features.sms.notifications=false
-features.live.rates=false
-*/
+*   **Uses `Connection`:** It accepts an active `Connection` object, allowing the `Service` layer to manage transactions (commit/rollback).
+*   **`PreparedStatement`:** Prevents SQL injection attacks.
+*   **`ResultSet` Handling:** Properly iterates through results and maps them to the `DC_Users_KK` model.
+*   **Error Handling:** Declares `throws SQLException` so the caller (like `loginService`) can handle specific database errors using `try-catch` blocks or the `ErrorHandler`.
+*   **`RETURN_GENERATED_KEYS`:** Used in the `insert` method to reliably get the auto-generated `userId`.
+*   **Helper Method:** `mapResultSetToUser` reduces code duplication when retrieving user data.
