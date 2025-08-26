@@ -1,696 +1,1141 @@
-// ================================
-// MODEL CLASSES
-// ================================
+I'll help you create a cryptocurrency trading platform CLI application in Java with Oracle database integration. Based on your ER diagram, I can see the main entities: Currencies, Users, Wallets, Transactions, SmartContracts, and BlockchainData.
 
-// DC_Wallets_KK.java
-package Model;
+Let me create a complete structure for you:
+
+-- Database Schema for Crypto Trading Platform
+-- Create tables based on ER diagram
+
+-- Currencies table (predefined crypto currencies)
+CREATE TABLE DC_Currencies (
+    currency_code VARCHAR2(10) PRIMARY KEY,
+    currency_name VARCHAR2(50) NOT NULL,
+    symbol VARCHAR2(10) NOT NULL,
+    blockchain_network VARCHAR2(50),
+    current_price NUMBER(18,8) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users table
+CREATE TABLE DC_Users (
+    user_id NUMBER PRIMARY KEY,
+    username VARCHAR2(50) UNIQUE NOT NULL,
+    encrypted_pin VARCHAR2(255) NOT NULL,
+    email VARCHAR2(100) UNIQUE NOT NULL,
+    phone_number VARCHAR2(20),
+    kyc_status VARCHAR2(20) DEFAULT 'PENDING',
+    wallet_address VARCHAR2(100) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Wallets table
+CREATE TABLE DC_Wallets (
+    wallet_id NUMBER PRIMARY KEY,
+    user_id NUMBER NOT NULL,
+    currency_code VARCHAR2(10) NOT NULL,
+    balance NUMBER(18,8) DEFAULT 0,
+    status VARCHAR2(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES DC_Users(user_id),
+    FOREIGN KEY (currency_code) REFERENCES DC_Currencies(currency_code)
+);
+
+-- Transactions table
+CREATE TABLE DC_Transactions (
+    transaction_id NUMBER PRIMARY KEY,
+    user_id NUMBER NOT NULL,
+    transaction_type VARCHAR2(20) NOT NULL, -- BUY, SELL, TRANSFER, DEPOSIT, WITHDRAW
+    from_currency VARCHAR2(10),
+    to_currency VARCHAR2(10),
+    amount NUMBER(18,8) NOT NULL,
+    price_per_unit NUMBER(18,8),
+    total_value NUMBER(18,8),
+    transaction_fee NUMBER(18,8) DEFAULT 0,
+    status VARCHAR2(20) DEFAULT 'PENDING',
+    transaction_hash VARCHAR2(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES DC_Users(user_id),
+    FOREIGN KEY (from_currency) REFERENCES DC_Currencies(currency_code),
+    FOREIGN KEY (to_currency) REFERENCES DC_Currencies(currency_code)
+);
+
+-- Smart Contracts table
+CREATE TABLE DC_SmartContracts (
+    contract_id NUMBER PRIMARY KEY,
+    owner_id NUMBER NOT NULL,
+    contract_name VARCHAR2(100) NOT NULL,
+    contract_code CLOB,
+    status VARCHAR2(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES DC_Users(user_id)
+);
+
+-- Blockchain Data table
+CREATE TABLE DC_BlockchainData (
+    block_id NUMBER PRIMARY KEY,
+    block_hash VARCHAR2(100) NOT NULL,
+    previous_hash VARCHAR2(100),
+    merkle_root VARCHAR2(100),
+    timestamp_data TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    difficulty_level NUMBER DEFAULT 1,
+    nonce NUMBER DEFAULT 0
+);
+
+-- Sequences for auto-increment
+CREATE SEQUENCE user_seq START WITH 1000 INCREMENT BY 1;
+CREATE SEQUENCE wallet_seq START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE transaction_seq START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE contract_seq START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE block_seq START WITH 1 INCREMENT BY 1;
+
+-- Insert predefined cryptocurrencies
+INSERT INTO DC_Currencies (currency_code, currency_name, symbol, blockchain_network, current_price) VALUES
+('BTC', 'Bitcoin', '₿', 'Bitcoin', 45000.00),
+('ETH', 'Ethereum', 'Ξ', 'Ethereum', 3200.00),
+('ADA', 'Cardano', '₳', 'Cardano', 0.45),
+('DOT', 'Polkadot', 'DOT', 'Polkadot', 6.50),
+('SOL', 'Solana', 'SOL', 'Solana', 95.00),
+('MATIC', 'Polygon', 'MATIC', 'Polygon', 0.85),
+('AVAX', 'Avalanche', 'AVAX', 'Avalanche', 22.00),
+('LINK', 'Chainlink', 'LINK', 'Ethereum', 14.50),
+('UNI', 'Uniswap', 'UNI', 'Ethereum', 6.20),
+('USDT', 'Tether', 'USDT', 'Multi-chain', 1.00);
+
+-- Create indexes for better performance
+CREATE INDEX idx_wallets_user_currency ON DC_Wallets(user_id, currency_code);
+CREATE INDEX idx_transactions_user ON DC_Transactions(user_id);
+CREATE INDEX idx_transactions_status ON DC_Transactions(status);
+CREATE INDEX idx_users_username ON DC_Users(username);
+CREATE INDEX idx_users_email ON DC_Users(email);
+
+COMMIT;
+
+Now, let me create the Model classes:
+
+// Model Classes for Crypto Trading Platform
+
+// Currency.java
+package com.cryptotrading.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
-public class DC_Wallets_KK {
-    private int walletId;
-    private int userId;
+public class Currency {
+    private String currencyCode;
+    private String currencyName;
+    private String symbol;
+    private String blockchainNetwork;
+    private BigDecimal currentPrice;
+    private LocalDateTime createdAt;
+    
+    // Constructors
+    public Currency() {}
+    
+    public Currency(String currencyCode, String currencyName, String symbol, 
+                   String blockchainNetwork, BigDecimal currentPrice) {
+        this.currencyCode = currencyCode;
+        this.currencyName = currencyName;
+        this.symbol = symbol;
+        this.blockchainNetwork = blockchainNetwork;
+        this.currentPrice = currentPrice;
+        this.createdAt = LocalDateTime.now();
+    }
+    
+    // Getters and Setters
+    public String getCurrencyCode() { return currencyCode; }
+    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
+    
+    public String getCurrencyName() { return currencyName; }
+    public void setCurrencyName(String currencyName) { this.currencyName = currencyName; }
+    
+    public String getSymbol() { return symbol; }
+    public void setSymbol(String symbol) { this.symbol = symbol; }
+    
+    public String getBlockchainNetwork() { return blockchainNetwork; }
+    public void setBlockchainNetwork(String blockchainNetwork) { this.blockchainNetwork = blockchainNetwork; }
+    
+    public BigDecimal getCurrentPrice() { return currentPrice; }
+    public void setCurrentPrice(BigDecimal currentPrice) { this.currentPrice = currentPrice; }
+    
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+}
+
+// User.java
+package com.cryptotrading.model;
+
+import java.time.LocalDateTime;
+
+public class User {
+    private Long userId;
+    private String username;
+    private String encryptedPin;
+    private String email;
+    private String phoneNumber;
+    private String kycStatus;
+    private String walletAddress;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    
+    // Constructors
+    public User() {}
+    
+    public User(String username, String encryptedPin, String email, String phoneNumber) {
+        this.username = username;
+        this.encryptedPin = encryptedPin;
+        this.email = email;
+        this.phoneNumber = phoneNumber;
+        this.kycStatus = "PENDING";
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    // Getters and Setters
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+    
+    public String getEncryptedPin() { return encryptedPin; }
+    public void setEncryptedPin(String encryptedPin) { this.encryptedPin = encryptedPin; }
+    
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    
+    public String getKycStatus() { return kycStatus; }
+    public void setKycStatus(String kycStatus) { this.kycStatus = kycStatus; }
+    
+    public String getWalletAddress() { return walletAddress; }
+    public void setWalletAddress(String walletAddress) { this.walletAddress = walletAddress; }
+    
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+}
+
+// Wallet.java
+package com.cryptotrading.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public class Wallet {
+    private Long walletId;
+    private Long userId;
     private String currencyCode;
     private BigDecimal balance;
     private String status;
-
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    
     // Constructors
-    public DC_Wallets_KK() {}
-
-    public DC_Wallets_KK(int userId, String currencyCode, BigDecimal balance) {
+    public Wallet() {}
+    
+    public Wallet(Long userId, String currencyCode) {
         this.userId = userId;
         this.currencyCode = currencyCode;
-        this.balance = balance;
+        this.balance = BigDecimal.ZERO;
         this.status = "ACTIVE";
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
-
+    
     // Getters and Setters
-    public int getWalletId() { return walletId; }
-    public void setWalletId(int walletId) { this.walletId = walletId; }
-
-    public int getUserId() { return userId; }
-    public void setUserId(int userId) { this.userId = userId; }
-
+    public Long getWalletId() { return walletId; }
+    public void setWalletId(Long walletId) { this.walletId = walletId; }
+    
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    
     public String getCurrencyCode() { return currencyCode; }
     public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
-
+    
     public BigDecimal getBalance() { return balance; }
     public void setBalance(BigDecimal balance) { this.balance = balance; }
-
+    
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-
-    @Override
-    public String toString() {
-        return String.format("Wallet{currency=%s, balance=%s}", currencyCode, balance);
-    }
+    
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
 
-// DC_Transactions_KK.java
-package Model;
+// Transaction.java
+package com.cryptotrading.model;
 
 import java.math.BigDecimal;
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
-public class DC_Transactions_KK {
-    private int transactionId;
-    private int userId;
+public class Transaction {
+    private Long transactionId;
+    private Long userId;
     private String transactionType;
     private String fromCurrency;
     private String toCurrency;
-    private BigDecimal fromAmount;
-    private BigDecimal toAmount;
-    private BigDecimal rate;
-    private Timestamp timestamp;
+    private BigDecimal amount;
+    private BigDecimal pricePerUnit;
+    private BigDecimal totalValue;
+    private BigDecimal transactionFee;
     private String status;
-
+    private String transactionHash;
+    private LocalDateTime createdAt;
+    private LocalDateTime completedAt;
+    
     // Constructors
-    public DC_Transactions_KK() {}
-
-    public DC_Transactions_KK(int userId, String transactionType, String fromCurrency, 
-                             String toCurrency, BigDecimal fromAmount, BigDecimal toAmount, 
-                             BigDecimal rate) {
+    public Transaction() {}
+    
+    public Transaction(Long userId, String transactionType, String fromCurrency, 
+                      String toCurrency, BigDecimal amount, BigDecimal pricePerUnit) {
         this.userId = userId;
         this.transactionType = transactionType;
         this.fromCurrency = fromCurrency;
         this.toCurrency = toCurrency;
-        this.fromAmount = fromAmount;
-        this.toAmount = toAmount;
-        this.rate = rate;
-        this.timestamp = new Timestamp(System.currentTimeMillis());
-        this.status = "COMPLETED";
+        this.amount = amount;
+        this.pricePerUnit = pricePerUnit;
+        this.totalValue = amount.multiply(pricePerUnit);
+        this.transactionFee = BigDecimal.ZERO;
+        this.status = "PENDING";
+        this.createdAt = LocalDateTime.now();
     }
-
+    
     // Getters and Setters
-    public int getTransactionId() { return transactionId; }
-    public void setTransactionId(int transactionId) { this.transactionId = transactionId; }
-
-    public int getUserId() { return userId; }
-    public void setUserId(int userId) { this.userId = userId; }
-
+    public Long getTransactionId() { return transactionId; }
+    public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
+    
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    
     public String getTransactionType() { return transactionType; }
     public void setTransactionType(String transactionType) { this.transactionType = transactionType; }
-
+    
     public String getFromCurrency() { return fromCurrency; }
     public void setFromCurrency(String fromCurrency) { this.fromCurrency = fromCurrency; }
-
+    
     public String getToCurrency() { return toCurrency; }
     public void setToCurrency(String toCurrency) { this.toCurrency = toCurrency; }
-
-    public BigDecimal getFromAmount() { return fromAmount; }
-    public void setFromAmount(BigDecimal fromAmount) { this.fromAmount = fromAmount; }
-
-    public BigDecimal getToAmount() { return toAmount; }
-    public void setToAmount(BigDecimal toAmount) { this.toAmount = toAmount; }
-
-    public BigDecimal getRate() { return rate; }
-    public void setRate(BigDecimal rate) { this.rate = rate; }
-
-    public Timestamp getTimestamp() { return timestamp; }
-    public void setTimestamp(Timestamp timestamp) { this.timestamp = timestamp; }
-
+    
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    
+    public BigDecimal getPricePerUnit() { return pricePerUnit; }
+    public void setPricePerUnit(BigDecimal pricePerUnit) { this.pricePerUnit = pricePerUnit; }
+    
+    public BigDecimal getTotalValue() { return totalValue; }
+    public void setTotalValue(BigDecimal totalValue) { this.totalValue = totalValue; }
+    
+    public BigDecimal getTransactionFee() { return transactionFee; }
+    public void setTransactionFee(BigDecimal transactionFee) { this.transactionFee = transactionFee; }
+    
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-
-    @Override
-    public String toString() {
-        return String.format("Transaction{type=%s, from=%s %s, to=%s %s, rate=%s, time=%s}", 
-                           transactionType, fromAmount, fromCurrency, toAmount, toCurrency, rate, timestamp);
-    }
-}
-
-// DC_SmartContracts_KK.java
-package Model;
-
-import java.sql.Timestamp;
-
-public class DC_SmartContracts_KK {
-    private int contractId;
-    private String contractType;
-    private String terms;
-    private String contractData;
-    private String status;
-    private Timestamp createdAt;
-
-    // Constructors
-    public DC_SmartContracts_KK() {}
-
-    public DC_SmartContracts_KK(String contractType, String terms, String contractData) {
-        this.contractType = contractType;
-        this.terms = terms;
-        this.contractData = contractData;
-        this.status = "ACTIVE";
-        this.createdAt = new Timestamp(System.currentTimeMillis());
-    }
-
-    // Getters and Setters
-    public int getContractId() { return contractId; }
-    public void setContractId(int contractId) { this.contractId = contractId; }
-
-    public String getContractType() { return contractType; }
-    public void setContractType(String contractType) { this.contractType = contractType; }
-
-    public String getTerms() { return terms; }
-    public void setTerms(String terms) { this.terms = terms; }
-
-    public String getContractData() { return contractData; }
-    public void setContractData(String contractData) { this.contractData = contractData; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-
-    public Timestamp getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
-}
-
-// DC_Blockchainrecords_KK.java
-package Model;
-
-import java.sql.Timestamp;
-
-public class DC_Blockchainrecords_KK {
-    private int recordId;
-    private String transactionHash;
-    private String blockNumber;
-    private String contractAddress;
-    private String eventType;
-    private String dataPayload;
-    private Timestamp timestamp;
-
-    // Constructors
-    public DC_Blockchainrecords_KK() {}
-
-    public DC_Blockchainrecords_KK(String transactionHash, String blockNumber, 
-                                  String contractAddress, String eventType, String dataPayload) {
-        this.transactionHash = transactionHash;
-        this.blockNumber = blockNumber;
-        this.contractAddress = contractAddress;
-        this.eventType = eventType;
-        this.dataPayload = dataPayload;
-        this.timestamp = new Timestamp(System.currentTimeMillis());
-    }
-
-    // Getters and Setters
-    public int getRecordId() { return recordId; }
-    public void setRecordId(int recordId) { this.recordId = recordId; }
-
+    
     public String getTransactionHash() { return transactionHash; }
     public void setTransactionHash(String transactionHash) { this.transactionHash = transactionHash; }
-
-    public String getBlockNumber() { return blockNumber; }
-    public void setBlockNumber(String blockNumber) { this.blockNumber = blockNumber; }
-
-    public String getContractAddress() { return contractAddress; }
-    public void setContractAddress(String contractAddress) { this.contractAddress = contractAddress; }
-
-    public String getEventType() { return eventType; }
-    public void setEventType(String eventType) { this.eventType = eventType; }
-
-    public String getDataPayload() { return dataPayload; }
-    public void setDataPayload(String dataPayload) { this.dataPayload = dataPayload; }
-
-    public Timestamp getTimestamp() { return timestamp; }
-    public void setTimestamp(Timestamp timestamp) { this.timestamp = timestamp; }
+    
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    
+    public LocalDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
 }
 
-// DC_Currencies_KK.java
-package Model;
+// SmartContract.java
+package com.cryptotrading.model;
 
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
-public class DC_Currencies_KK {
-    private String currencyCode;
-    private String currencyName;
-    private String type;
-    private String blockchainNetwork;
-
+public class SmartContract {
+    private Long contractId;
+    private Long ownerId;
+    private String contractName;
+    private String contractCode;
+    private String status;
+    private LocalDateTime createdAt;
+    
     // Constructors
-    public DC_Currencies_KK() {}
-
-    public DC_Currencies_KK(String currencyCode, String currencyName, String type, String blockchainNetwork) {
-        this.currencyCode = currencyCode;
-        this.currencyName = currencyName;
-        this.type = type;
-        this.blockchainNetwork = blockchainNetwork;
+    public SmartContract() {}
+    
+    public SmartContract(Long ownerId, String contractName, String contractCode) {
+        this.ownerId = ownerId;
+        this.contractName = contractName;
+        this.contractCode = contractCode;
+        this.status = "ACTIVE";
+        this.createdAt = LocalDateTime.now();
     }
-
+    
     // Getters and Setters
-    public String getCurrencyCode() { return currencyCode; }
-    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
-
-    public String getCurrencyName() { return currencyName; }
-    public void setCurrencyName(String currencyName) { this.currencyName = currencyName; }
-
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
-
-    public String getBlockchainNetwork() { return blockchainNetwork; }
-    public void setBlockchainNetwork(String blockchainNetwork) { this.blockchainNetwork = blockchainNetwork; }
+    public Long getContractId() { return contractId; }
+    public void setContractId(Long contractId) { this.contractId = contractId; }
+    
+    public Long getOwnerId() { return ownerId; }
+    public void setOwnerId(Long ownerId) { this.ownerId = ownerId; }
+    
+    public String getContractName() { return contractName; }
+    public void setContractName(String contractName) { this.contractName = contractName; }
+    
+    public String getContractCode() { return contractCode; }
+    public void setContractCode(String contractCode) { this.contractCode = contractCode; }
+    
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
 
-// ================================
-// DAO CLASSES
-// ================================
+// BlockchainData.java
+package com.cryptotrading.model;
 
-// WalletDao.java
-package Dao;
+import java.time.LocalDateTime;
 
-import Model.DC_Wallets_KK;
-import utils.DBUtil;
-import java.math.BigDecimal;
+public class BlockchainData {
+    private Long blockId;
+    private String blockHash;
+    private String previousHash;
+    private String merkleRoot;
+    private LocalDateTime timestampData;
+    private Integer difficultyLevel;
+    private Long nonce;
+    
+    // Constructors
+    public BlockchainData() {}
+    
+    public BlockchainData(String blockHash, String previousHash, String merkleRoot) {
+        this.blockHash = blockHash;
+        this.previousHash = previousHash;
+        this.merkleRoot = merkleRoot;
+        this.timestampData = LocalDateTime.now();
+        this.difficultyLevel = 1;
+        this.nonce = 0L;
+    }
+    
+    // Getters and Setters
+    public Long getBlockId() { return blockId; }
+    public void setBlockId(Long blockId) { this.blockId = blockId; }
+    
+    public String getBlockHash() { return blockHash; }
+    public void setBlockHash(String blockHash) { this.blockHash = blockHash; }
+    
+    public String getPreviousHash() { return previousHash; }
+    public void setPreviousHash(String previousHash) { this.previousHash = previousHash; }
+    
+    public String getMerkleRoot() { return merkleRoot; }
+    public void setMerkleRoot(String merkleRoot) { this.merkleRoot = merkleRoot; }
+    
+    public LocalDateTime getTimestampData() { return timestampData; }
+    public void setTimestampData(LocalDateTime timestampData) { this.timestampData = timestampData; }
+    
+    public Integer getDifficultyLevel() { return difficultyLevel; }
+    public void setDifficultyLevel(Integer difficultyLevel) { this.difficultyLevel = difficultyLevel; }
+    
+    public Long getNonce() { return nonce; }
+    public void setNonce(Long nonce) { this.nonce = nonce; }
+}
+
+Now let me create the Utils classes:
+
+// Utils Classes for Crypto Trading Platform
+
+// DatabaseConnection.java
+package com.cryptotrading.utils;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Properties;
+
+public class DatabaseConnection {
+    private static final String URL = "jdbc:oracle:thin:@localhost:1521:XE";
+    private static final String USERNAME = "crypto_user";
+    private static final String PASSWORD = "crypto_pass";
+    
+    private static Connection connection = null;
+    
+    public static Connection getConnection() throws SQLException {
+        if (connection == null || connection.isClosed()) {
+            try {
+                Class.forName("oracle.jdbc.driver.OracleDriver");
+                Properties props = new Properties();
+                props.setProperty("user", USERNAME);
+                props.setProperty("password", PASSWORD);
+                props.setProperty("oracle.jdbc.timezoneAsRegion", "false");
+                
+                connection = DriverManager.getConnection(URL, props);
+                connection.setAutoCommit(false);
+                
+                System.out.println("Database connection established successfully!");
+            } catch (ClassNotFoundException e) {
+                System.err.println("Oracle JDBC Driver not found: " + e.getMessage());
+                throw new SQLException("Driver not found", e);
+            } catch (SQLException e) {
+                System.err.println("Database connection failed: " + e.getMessage());
+                throw e;
+            }
+        }
+        return connection;
+    }
+    
+    public static void closeConnection() {
+        if (connection != null) {
+            try {
+                connection.close();
+                System.out.println("Database connection closed.");
+            } catch (SQLException e) {
+                System.err.println("Error closing connection: " + e.getMessage());
+            }
+        }
+    }
+    
+    public static void commit() throws SQLException {
+        if (connection != null && !connection.isClosed()) {
+            connection.commit();
+        }
+    }
+    
+    public static void rollback() throws SQLException {
+        if (connection != null && !connection.isClosed()) {
+            connection.rollback();
+        }
+    }
+}
+
+// CryptographyUtils.java
+package com.cryptotrading.utils;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+public class CryptographyUtils {
+    private static final String ALGORITHM = "AES";
+    private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
+    private static final SecureRandom secureRandom = new SecureRandom();
+    
+    // Generate SHA-256 hash
+    public static String generateHash(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes());
+            return bytesToHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not available", e);
+        }
+    }
+    
+    // Generate secure PIN hash with salt
+    public static String hashPin(String pin) {
+        String salt = generateSalt();// Service Classes for Crypto Trading Platform
+
+// UserService.java
+package com.cryptotrading.service;
+
+import com.cryptotrading.model.User;
+import com.cryptotrading.utils.DatabaseConnection;
+import com.cryptotrading.utils.CryptographyUtils;
+import com.cryptotrading.utils.ValidationUtils;
+
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class WalletDao {
+public class UserService {
     
-    public boolean insert(DC_Wallets_KK wallet) {
-        String query = "INSERT INTO DC_Wallets (user_id, currency_code, balance, status) VALUES (?, ?, ?, ?)";
-        try (Connection connection = DBUtil.getConnection();
-             PreparedStatement ps = connection.prepareStatement(query)) {
-            
-            ps.setInt(1, wallet.getUserId());
-            ps.setString(2, wallet.getCurrencyCode());
-            ps.setBigDecimal(3, wallet.getBalance());
-            ps.setString(4, wallet.getStatus());
-            
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Error inserting wallet: " + e.getMessage());
-            return false;
+    public User registerUser(String username, String pin, String email, String phoneNumber) throws SQLException {
+        if (!ValidationUtils.isValidUsername(username)) {
+            throw new IllegalArgumentException("Invalid username format");
         }
-    }
-    
-    public DC_Wallets_KK findByUserAndCurrency(int userId, String currencyCode) {
-        String query = "SELECT * FROM DC_Wallets WHERE user_id = ? AND currency_code = ?";
-        try (Connection connection = DBUtil.getConnection();
-             PreparedStatement ps = connection.prepareStatement(query)) {
+        if (!ValidationUtils.isValidPin(pin)) {
+            throw new IllegalArgumentException("PIN must be 4-8 digits");
+        }
+        if (!ValidationUtils.isValidEmail(email)) {
+            throw new IllegalArgumentException("Invalid email format");
+        }
+        
+        Connection conn = DatabaseConnection.getConnection();
+        
+        // Check if username or email already exists
+        String checkQuery = "SELECT COUNT(*) FROM DC_Users WHERE username = ? OR email = ?";
+        try (PreparedStatement checkStmt = conn.prepareStatement(checkQuery)) {
+            checkStmt.setString(1, username);
+            checkStmt.setString(2, email);
+            ResultSet rs = checkStmt.executeQuery();
+            if (rs.next() && rs.getInt(1) > 0) {
+                throw new SQLException("Username or email already exists");
+            }
+        }
+        
+        // Insert new user
+        String insertQuery = "INSERT INTO DC_Users (user_id, username, encrypted_pin, email, phone_number, wallet_address) " +
+                            "VALUES (user_seq.NEXTVAL, ?, ?, ?, ?, ?)";
+        
+        String encryptedPin = CryptographyUtils.hashPin(pin);
+        String walletAddress = CryptographyUtils.generateWalletAddress(username, email);
+        
+        try (PreparedStatement stmt = conn.prepareStatement(insertQuery, new String[]{"user_id"})) {
+            stmt.setString(1, username);
+            stmt.setString(2, encryptedPin);
+            stmt.setString(3, email);
+            stmt.setString(4, phoneNumber);
+            stmt.setString(5, walletAddress);
             
-            ps.setInt(1, userId);
-            ps.setString(2, currencyCode);
-            
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                DC_Wallets_KK wallet = new DC_Wallets_KK();
-                wallet.setWalletId(rs.getInt("wallet_id"));
-                wallet.setUserId(rs.getInt("user_id"));
-                wallet.setCurrencyCode(rs.getString("currency_code"));
-                wallet.setBalance(rs.getBigDecimal("balance"));
-                wallet.setStatus(rs.getString("status"));
-                return wallet;
+            int rowsAffected = stmt.executeUpdate();
+            if (rowsAffected > 0) {
+                ResultSet generatedKeys = stmt.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    Long userId = generatedKeys.getLong(1);
+                    
+                    // Create default wallets for major cryptocurrencies
+                    WalletService walletService = new WalletService();
+                    String[] defaultCurrencies = {"BTC", "ETH", "USDT"};
+                    for (String currency : defaultCurrencies) {
+                        walletService.createWallet(userId, currency);
+                    }
+                    
+                    DatabaseConnection.commit();
+                    return getUserById(userId);
+                }
             }
         } catch (SQLException e) {
-            System.err.println("Error finding wallet: " + e.getMessage());
+            DatabaseConnection.rollback();
+            throw e;
         }
+        
+        throw new SQLException("Failed to create user");
+    }
+    
+    public User authenticateUser(String username, String pin) throws SQLException {
+        String query = "SELECT user_id, username, encrypted_pin, email, phone_number, kyc_status, " +
+                      "wallet_address, created_at, updated_at FROM DC_Users WHERE username = ?";
+        
+        Connection conn = DatabaseConnection.getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                String storedPin = rs.getString("encrypted_pin");
+                if (CryptographyUtils.verifyPin(pin, storedPin)) {
+                    return mapResultSetToUser(rs);
+                }
+            }
+        }
+        
+        return null; // Authentication failed
+    }
+    
+    public User getUserById(Long userId) throws SQLException {
+        String query = "SELECT user_id, username, encrypted_pin, email, phone_number, kyc_status, " +
+                      "wallet_address, created_at, updated_at FROM DC_Users WHERE user_id = ?";
+        
+        Connection conn = DatabaseConnection.getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setLong(1, userId);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return mapResultSetToUser(rs);
+            }
+        }
+        
         return null;
     }
     
-    public boolean updateBalance(int userId, String currencyCode, BigDecimal newBalance) {
-        String query = "UPDATE DC_Wallets SET balance = ? WHERE user_id = ? AND currency_code = ?";
-        try (Connection connection = DBUtil.getConnection();
-             PreparedStatement ps = connection.prepareStatement(query)) {
+    public boolean updateUserProfile(Long userId, String email, String phoneNumber) throws SQLException {
+        String query = "UPDATE DC_Users SET email = ?, phone_number = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?";
+        
+        Connection conn = DatabaseConnection.getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, email);
+            stmt.setString(2, phoneNumber);
+            stmt.setLong(3, userId);
             
-            ps.setBigDecimal(1, newBalance);
-            ps.setInt(2, userId);
-            ps.setString(3, currencyCode);
-            
-            return ps.executeUpdate() > 0;
+            int rowsAffected = stmt.executeUpdate();
+            DatabaseConnection.commit();
+            return rowsAffected > 0;
         } catch (SQLException e) {
-            System.err.println("Error updating wallet balance: " + e.getMessage());
-            return false;
+            DatabaseConnection.rollback();
+            throw e;
         }
     }
     
-    public List<DC_Wallets_KK> findByUserId(int userId) {
-        List<DC_Wallets_KK> wallets = new ArrayList<>();
-        String query = "SELECT * FROM DC_Wallets WHERE user_id = ?";
-        try (Connection connection = DBUtil.getConnection();
-             PreparedStatement ps = connection.prepareStatement(query)) {
-            
-            ps.setInt(1, userId);
-            ResultSet rs = ps.executeQuery();
-            
-            while (rs.next()) {
-                DC_Wallets_KK wallet = new DC_Wallets_KK();
-                wallet.setWalletId(rs.getInt("wallet_id"));
-                wallet.setUserId(rs.getInt("user_id"));
-                wallet.setCurrencyCode(rs.getString("currency_code"));
-                wallet.setBalance(rs.getBigDecimal("balance"));
-                wallet.setStatus(rs.getString("status"));
-                wallets.add(wallet);
-            }
-        } catch (SQLException e) {
-            System.err.println("Error finding user wallets: " + e.getMessage());
-        }
-        return wallets;
+    private User mapResultSetToUser(ResultSet rs) throws SQLException {
+        User user = new User();
+        user.setUserId(rs.getLong("user_id"));
+        user.setUsername(rs.getString("username"));
+        user.setEncryptedPin(rs.getString("encrypted_pin"));
+        user.setEmail(rs.getString("email"));
+        user.setPhoneNumber(rs.getString("phone_number"));
+        user.setKycStatus(rs.getString("kyc_status"));
+        user.setWalletAddress(rs.getString("wallet_address"));
+        user.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+        user.setUpdatedAt(rs.getTimestamp("updated_at").toLocalDateTime());
+        return user;
     }
 }
 
-// TransactionDao.java
-package Dao;
+// WalletService.java
+package com.cryptotrading.service;
 
-import Model.DC_Transactions_KK;
-import utils.DBUtil;
+import com.cryptotrading.model.Wallet;
+import com.cryptotrading.utils.DatabaseConnection;
+
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TransactionDao {
+public class WalletService {
     
-    public boolean insert(DC_Transactions_KK transaction) {
-        String query = "INSERT INTO DC_Transactions (user_id, transaction_type, from_currency, to_currency, " +
-                      "from_amount, to_amount, rate, timestamp, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection connection = DBUtil.getConnection();
-             PreparedStatement ps = connection.prepareStatement(query)) {
+    public Wallet createWallet(Long userId, String currencyCode) throws SQLException {
+        String insertQuery = "INSERT INTO DC_Wallets (wallet_id, user_id, currency_code) " +
+                            "VALUES (wallet_seq.NEXTVAL, ?, ?)";
+        
+        Connection conn = DatabaseConnection.getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(insertQuery, new String[]{"wallet_id"})) {
+            stmt.setLong(1, userId);
+            stmt.setString(2, currencyCode);
             
-            ps.setInt(1, transaction.getUserId());
-            ps.setString(2, transaction.getTransactionType());
-            ps.setString(3, transaction.getFromCurrency());
-            ps.setString(4, transaction.getToCurrency());
-            ps.setBigDecimal(5, transaction.getFromAmount());
-            ps.setBigDecimal(6, transaction.getToAmount());
-            ps.setBigDecimal(7, transaction.getRate());
-            ps.setTimestamp(8, transaction.getTimestamp());
-            ps.setString(9, transaction.getStatus());
-            
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Error inserting transaction: " + e.getMessage());
-            return false;
+            int rowsAffected = stmt.executeUpdate();
+            if (rowsAffected > 0) {
+                ResultSet generatedKeys = stmt.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    Long walletId = generatedKeys.getLong(1);
+                    return getWalletById(walletId);
+                }
+            }
         }
+        
+        throw new SQLException("Failed to create wallet");
     }
     
-    public List<DC_Transactions_KK> getByUser(int userId) {
-        List<DC_Transactions_KK> transactions = new ArrayList<>();
-        String query = "SELECT * FROM DC_Transactions WHERE user_id = ? ORDER BY timestamp DESC";
+    public List<Wallet> getUserWallets(Long userId) throws SQLException {
+        String query = "SELECT w.wallet_id, w.user_id, w.currency_code, w.balance, w.status, " +
+                      "w.created_at, w.updated_at, c.currency_name, c.symbol " +
+                      "FROM DC_Wallets w JOIN DC_Currencies c ON w.currency_code = c.currency_code " +
+                      "WHERE w.user_id = ? AND w.status = 'ACTIVE' ORDER BY w.currency_code";
         
-        try (Connection connection = DBUtil.getConnection();
-             PreparedStatement ps = connection.prepareStatement(query)) {
-            
-            ps.setInt(1, userId);
-            ResultSet rs = ps.executeQuery();
+        Connection conn = DatabaseConnection.getConnection();
+        List<Wallet> wallets = new ArrayList<>();
+        
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setLong(1, userId);
+            ResultSet rs = stmt.executeQuery();
             
             while (rs.next()) {
-                DC_Transactions_KK transaction = new DC_Transactions_KK();
-                transaction.setTransactionId(rs.getInt("transaction_id"));
-                transaction.setUserId(rs.getInt("user_id"));
-                transaction.setTransactionType(rs.getString("transaction_type"));
-                transaction.setFromCurrency(rs.getString("from_currency"));
-                transaction.setToCurrency(rs.getString("to_currency"));
-                transaction.setFromAmount(rs.getBigDecimal("from_amount"));
-                transaction.setToAmount(rs.getBigDecimal("to_amount"));
-                transaction.setRate(rs.getBigDecimal("rate"));
-                transaction.setTimestamp(rs.getTimestamp("timestamp"));
-                transaction.setStatus(rs.getString("status"));
-                transactions.add(transaction);
+                wallets.add(mapResultSetToWallet(rs));
             }
+        }
+        
+        return wallets;
+    }
+    
+    public Wallet getUserWallet(Long userId, String currencyCode) throws SQLException {
+        String query = "SELECT wallet_id, user_id, currency_code, balance, status, created_at, updated_at " +
+                      "FROM DC_Wallets WHERE user_id = ? AND currency_code = ? AND status = 'ACTIVE'";
+        
+        Connection conn = DatabaseConnection.getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setLong(1, userId);
+            stmt.setString(2, currencyCode);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return mapResultSetToWallet(rs);
+            }
+        }
+        
+        return null;
+    }
+    
+    public boolean updateBalance(Long userId, String currencyCode, BigDecimal newBalance) throws SQLException {
+        String query = "UPDATE DC_Wallets SET balance = ?, updated_at = CURRENT_TIMESTAMP " +
+                      "WHERE user_id = ? AND currency_code = ? AND status = 'ACTIVE'";
+        
+        Connection conn = DatabaseConnection.getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setBigDecimal(1, newBalance);
+            stmt.setLong(2, userId);
+            stmt.setString(3, currencyCode);
+            
+            return stmt.executeUpdate() > 0;
+        }
+    }
+    
+    public boolean addToBalance(Long userId, String currencyCode, BigDecimal amount) throws SQLException {
+        Wallet wallet = getUserWallet(userId, currencyCode);
+        if (wallet == null) {
+            // Create wallet if it doesn't exist
+            wallet = createWallet(userId, currencyCode);
+        }
+        
+        BigDecimal newBalance = wallet.getBalance().add(amount);
+        return updateBalance(userId, currencyCode, newBalance);
+    }
+    
+    public boolean deductFromBalance(Long userId, String currencyCode, BigDecimal amount) throws SQLException {
+        Wallet wallet = getUserWallet(userId, currencyCode);
+        if (wallet == null || wallet.getBalance().compareTo(amount) < 0) {
+            return false; // Insufficient balance
+        }
+        
+        BigDecimal newBalance = wallet.getBalance().subtract(amount);
+        return updateBalance(userId, currencyCode, newBalance);
+    }
+    
+    private Wallet getWalletById(Long walletId) throws SQLException {
+        String query = "SELECT wallet_id, user_id, currency_code, balance, status, created_at, updated_at " +
+                      "FROM DC_Wallets WHERE wallet_id = ?";
+        
+        Connection conn = DatabaseConnection.getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setLong(1, walletId);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return mapResultSetToWallet(rs);
+            }
+        }
+        
+        return null;
+    }
+    
+    private Wallet mapResultSetToWallet(ResultSet rs) throws SQLException {
+        Wallet wallet = new Wallet();
+        wallet.setWalletId(rs.getLong("wallet_id"));
+        wallet.setUserId(rs.getLong("user_id"));
+        wallet.setCurrencyCode(rs.getString("currency_code"));
+        wallet.setBalance(rs.getBigDecimal("balance"));
+        wallet.setStatus(rs.getString("status"));
+        wallet.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+        wallet.setUpdatedAt(rs.getTimestamp("updated_at").toLocalDateTime());
+        return wallet;
+    }
+}
+
+// TradingService.java
+package com.cryptotrading.service;
+
+import com.cryptotrading.model.Transaction;
+import com.cryptotrading.model.Currency;
+import com.cryptotrading.utils.DatabaseConnection;
+import com.cryptotrading.utils.CryptographyUtils;
+import com.cryptotrading.utils.ValidationUtils;
+import com.cryptotrading.utils.Constants;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.sql.*;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+public class TradingService {
+    private final WalletService walletService;
+    private final CurrencyService currencyService;
+    
+    public TradingService() {
+        this.walletService = new WalletService();
+        this.currencyService = new CurrencyService();
+    }
+    
+    public Transaction buycryptocurrency(Long userId, String currencyCode, BigDecimal amount, BigDecimal pricePerUnit) throws SQLException {
+        if (!ValidationUtils.isValidAmount(amount)) {
+            throw new IllegalArgumentException("Invalid amount");
+        }
+        
+        BigDecimal totalCost = amount.multiply(pricePerUnit);
+        BigDecimal tradingFee = totalCost.multiply(Constants.TRADING_FEE_PERCENTAGE);
+        BigDecimal totalWithFee = totalCost.add(tradingFee);
+        
+        Connection conn = DatabaseConnection.getConnection();
+        
+        try {
+            // Check if user has sufficient USDT balance (assuming USDT is the base currency)
+            if (!walletService.deductFromBalance(userId, "USDT", totalWithFee)) {
+                throw new SQLException("Insufficient USDT balance");
+            }
+            
+            // Add cryptocurrency to user's wallet
+            if (!walletService.addToBalance(userId, currencyCode, amount)) {
+                // Rollback USDT deduction
+                walletService.addToBalance(userId, "USDT", totalWithFee);
+                throw new SQLException("Failed to add cryptocurrency to wallet");
+            }
+            
+            // Create transaction record
+            Transaction transaction = new Transaction();
+            transaction.setUserId(userId);
+            transaction.setTransactionType(Constants.TX_BUY);
+            transaction.setFromCurrency("USDT");
+            transaction.setToCurrency(currencyCode);
+            transaction.setAmount(amount);
+            transaction.setPricePerUnit(pricePerUnit);
+            transaction.setTotalValue(totalCost);
+            transaction.setTransactionFee(tradingFee);
+            transaction.setStatus(Constants.STATUS_COMPLETED);
+            transaction.setTransactionHash(CryptographyUtils.generateTransactionHash(
+                userId + currencyCode + amount.toString() + System.currentTimeMillis()));
+            transaction.setCompletedAt(LocalDateTime.now());
+            
+            Transaction savedTransaction = saveTransaction(transaction);
+            DatabaseConnection.commit();
+            
+            return savedTransaction;
+            
         } catch (SQLException e) {
-            System.err.println("Error retrieving transactions: " + e.getMessage());
+            DatabaseConnection.rollback();
+            throw e;
         }
-        return transactions;
     }
-}
+    
+    public Transaction sellCryptocurrency(Long userId, String currencyCode, BigDecimal amount, BigDecimal pricePerUnit) throws SQLException {
+        if (!ValidationUtils.isValidAmount(amount)) {
+            throw new IllegalArgumentException("Invalid amount");
+        }
+        
+        BigDecimal totalValue = amount.multiply(pricePerUnit);
+        BigDecimal tradingFee = totalValue.multiply(Constants.TRADING_FEE_PERCENTAGE);
+        BigDecimal netValue = totalValue.subtract(tradingFee);
+        
+        Connection conn = DatabaseConnection.getConnection();
+        
+        try {
+            // Check if user has sufficient cryptocurrency balance
+            if (!walletService.deductFromBalance(userId, currencyCode, amount)) {
+                throw new SQLException("Insufficient " + currencyCode + " balance");
+            }
+            
+            // Add USDT to user's wallet
+            if (!walletService.addToBalance(userId, "USDT", netValue)) {
+                // Rollback cryptocurrency deduction
+                walletService.addToBalance(userId, currencyCode, amount);
+                throw new SQLException("Failed to add USDT to wallet");
+            }
+            
+            // Create transaction record
+            Transaction transaction = new Transaction();
+            transaction.setUserId(userId);
+            transaction.setTransactionType(Constants.TX_SELL);
+            transaction.setFromCurrency(currencyCode);
+            transaction.setToCurrency("USDT");
+            transaction.setAmount(amount);
+            transaction.setPricePerUnit(pricePerUnit);
+            transaction.setTotalValue(totalValue);
+            transaction.setTransactionFee(tradingFee);
+            transaction.setStatus(Constants.STATUS_COMPLETED);
+            transaction.setTransactionHash(CryptographyUtils.generateTransactionHash(
+                userId + currencyCode + amount.toString() + System.currentTimeMillis()));
+            transaction.setCompletedAt(LocalDateTime.now());
+            
+            Transaction savedTransaction = saveTransaction(transaction);
+            DatabaseConnection.commit();
+            
+            return savedTransaction;
+            
+        } catch (SQLException e) {
+            DatabaseConnection.rollback();
+            throw e;
+        }
+    }
+    
+    public Transaction transferFunds(Long fromUserId, Long toUserId, String currencyCode, BigDecimal amount) throws SQLException {
+        if (!ValidationUtils.isValidAmount(amount)) {
+            throw new IllegalArgumentException("Invalid amount");
+        }
+        
+        BigDecimal transferFee = amount.multiply(new BigDecimal("0.0005")); // 0.05% transfer fee
+        BigDecimal totalDeduction = amount.add(transferFee);
+        
+        Connection conn = DatabaseConnection.getConnection();
+        
+        try {
+            // Deduct from sender
+            if (!walletService.deductFromBalance(fromUserId, currencyCode, totalDeduction)) {
+                throw new SQLException("Insufficient balance for transfer");
+            }
+            
+            // Add to receiver
+            if (!walletService.addToBalance(toUserId, currencyCode, amount)) {
+                // Rollback sender deduction
+                walletService.addToBalance(fromUserId, currencyCode, totalDeduction);
+                throw new SQLException("Failed to transfer funds to recipient");
+            }
+            
+            // Create transaction record
+            Transaction transaction = new Transaction();
+            transaction.setUserId(fromUserId);
+            transaction.setTransactionType(Constants.TX_TRANSFER);
+            transaction.setFromCurrency(currencyCode);
+            transaction.setToCurrency(currencyCode);
+            transaction.setAmount(amount);
+            transaction.setPricePerUnit(BigDecimal.ONE);
+            transaction.setTotalValue(amount);
+            transaction.setTransactionFee(transferFee);
+            transaction.setStatus(Constants.STATUS_COMPLETED);
+            transaction.setTransactionHash(CryptographyUtils.generateTransactionHash(
+                fromUserId + "" + toUserId + currencyCode + amount.toString() + System.currentTimeMillis()));
+            transaction.setCompletedAt(LocalDateTime.now());
+            
+            Transaction savedTransaction = saveTransaction(transaction);
+            DatabaseConnection.commit();
+            
+            return savedTransaction;
+            
+        } catch (SQLException e) {
+            DatabaseConnection.rollback();
+            throw e;
+        }
+    }
+    
+    private Transaction saveTransaction(Transaction transaction) throws SQLException {
+        String insertQuery = "INSERT INTO DC_Transactions (transaction_id, user_id, transaction_type, " +
+                            "from_currency, to_currency, amount, price_per_unit, total_value, transaction_fee, " +
+                            "status, transaction_hash, completed_at) VALUES (transaction_seq.NEXTVAL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        Connection conn = DatabaseConnection.getConnection();
+        
 
-// ================================
-// SERVICE CLASSES
-// ================================
 
-// WalletService.java
-package Service;
 
-import Dao.WalletDao;
-import Model.DC_Wallets_KK;
+
+// Main CLI Application for Crypto Trading Platform
+
+// CryptoTradingCLI.java
+package com.cryptotrading;
+
+import com.cryptotrading.model.*;
+import com.cryptotrading.service.*;
+import com.cryptotrading.utils.*;
+
 import java.math.BigDecimal;
-import java.util.List;
-
-public class WalletService {
-    private WalletDao walletDao;
-    
-    public WalletService() {
-        this.walletDao = new WalletDao();
-    }
-    
-    public boolean createDefaultWallets(int userId) {
-        // Create USD wallet
-        DC_Wallets_KK usdWallet = new DC_Wallets_KK(userId, "USD", BigDecimal.ZERO);
-        boolean usdCreated = walletDao.insert(usdWallet);
-        
-        // Create BTC wallet
-        DC_Wallets_KK btcWallet = new DC_Wallets_KK(userId, "BTC", BigDecimal.ZERO);
-        boolean btcCreated = walletDao.insert(btcWallet);
-        
-        return usdCreated && btcCreated;
-    }
-    
-    public DC_Wallets_KK getWallet(int userId, String currencyCode) {
-        return walletDao.findByUserAndCurrency(userId, currencyCode);
-    }
-    
-    public boolean depositFiat(int userId, BigDecimal amount) {
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            System.out.println("Deposit amount must be positive.");
-            return false;
-        }
-        
-        DC_Wallets_KK usdWallet = walletDao.findByUserAndCurrency(userId, "USD");
-        if (usdWallet == null) {
-            System.out.println("USD wallet not found.");
-            return false;
-        }
-        
-        BigDecimal newBalance = usdWallet.getBalance().add(amount);
-        return walletDao.updateBalance(userId, "USD", newBalance);
-    }
-    
-    public boolean buyBTC(int userId, BigDecimal usdAmount, BigDecimal btcRate) {
-        if (usdAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            System.out.println("Buy amount must be positive.");
-            return false;
-        }
-        
-        // Get wallets
-        DC_Wallets_KK usdWallet = walletDao.findByUserAndCurrency(userId, "USD");
-        DC_Wallets_KK btcWallet = walletDao.findByUserAndCurrency(userId, "BTC");
-        
-        if (usdWallet == null || btcWallet == null) {
-            System.out.println("Wallet not found.");
-            return false;
-        }
-        
-        // Check sufficient USD balance
-        if (usdWallet.getBalance().compareTo(usdAmount) < 0) {
-            System.out.println("Insufficient USD balance.");
-            return false;
-        }
-        
-        // Calculate BTC amount
-        BigDecimal btcAmount = usdAmount.divide(btcRate, 8, BigDecimal.ROUND_HALF_UP);
-        
-        // Update balances
-        BigDecimal newUsdBalance = usdWallet.getBalance().subtract(usdAmount);
-        BigDecimal newBtcBalance = btcWallet.getBalance().add(btcAmount);
-        
-        boolean usdUpdated = walletDao.updateBalance(userId, "USD", newUsdBalance);
-        boolean btcUpdated = walletDao.updateBalance(userId, "BTC", newBtcBalance);
-        
-        return usdUpdated && btcUpdated;
-    }
-    
-    public boolean sellBTC(int userId, BigDecimal btcAmount, BigDecimal btcRate) {
-        if (btcAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            System.out.println("Sell amount must be positive.");
-            return false;
-        }
-        
-        // Get wallets
-        DC_Wallets_KK usdWallet = walletDao.findByUserAndCurrency(userId, "USD");
-        DC_Wallets_KK btcWallet = walletDao.findByUserAndCurrency(userId, "BTC");
-        
-        if (usdWallet == null || btcWallet == null) {
-            System.out.println("Wallet not found.");
-            return false;
-        }
-        
-        // Check sufficient BTC balance
-        if (btcWallet.getBalance().compareTo(btcAmount) < 0) {
-            System.out.println("Insufficient BTC balance.");
-            return false;
-        }
-        
-        // Calculate USD amount
-        BigDecimal usdAmount = btcAmount.multiply(btcRate);
-        
-        // Update balances
-        BigDecimal newUsdBalance = usdWallet.getBalance().add(usdAmount);
-        BigDecimal newBtcBalance = btcWallet.getBalance().subtract(btcAmount);
-        
-        boolean usdUpdated = walletDao.updateBalance(userId, "USD", newUsdBalance);
-        boolean btcUpdated = walletDao.updateBalance(userId, "BTC", newBtcBalance);
-        
-        return usdUpdated && btcUpdated;
-    }
-    
-    public List<DC_Wallets_KK> getAllWallets(int userId) {
-        return walletDao.findByUserId(userId);
-    }
-}
-
-// TransactionService.java
-package Service;
-
-import Dao.TransactionDao;
-import Model.DC_Transactions_KK;
-import java.math.BigDecimal;
-import java.util.List;
-
-public class TransactionService {
-    private TransactionDao transactionDao;
-    
-    public TransactionService() {
-        this.transactionDao = new TransactionDao();
-    }
-    
-    public boolean recordDeposit(int userId, BigDecimal amount) {
-        DC_Transactions_KK transaction = new DC_Transactions_KK(
-            userId, "DEPOSIT", null, "USD", null, amount, BigDecimal.ONE
-        );
-        return transactionDao.insert(transaction);
-    }
-    
-    public boolean recordBuy(int userId, BigDecimal usdAmount, BigDecimal btcAmount, BigDecimal rate) {
-        DC_Transactions_KK transaction = new DC_Transactions_KK(
-            userId, "BUY", "USD", "BTC", usdAmount, btcAmount, rate
-        );
-        return transactionDao.insert(transaction);
-    }
-    
-    public boolean recordSell(int userId, BigDecimal btcAmount, BigDecimal usdAmount, BigDecimal rate) {
-        DC_Transactions_KK transaction = new DC_Transactions_KK(
-            userId, "SELL", "BTC", "USD", btcAmount, usdAmount, rate
-        );
-        return transactionDao.insert(transaction);
-    }
-    
-    public void getTransactionHistory(int userId) {
-        List<DC_Transactions_KK> transactions = transactionDao.getByUser(userId);
-        
-        if (transactions.isEmpty()) {
-            System.out.println("No transactions found.");
-            return;
-        }
-        
-        System.out.println("\n=== TRANSACTION HISTORY ===");
-        System.out.printf("%-5s %-10s %-10s %-10s %-15s %-15s %-10s %-20s%n", 
-                         "ID", "Type", "From", "To", "From Amount", "To Amount", "Rate", "Timestamp");
-        System.out.println("=".repeat(100));
-        
-        for (DC_Transactions_KK transaction : transactions) {
-            System.out.printf("%-5d %-10s %-10s %-10s %-15s %-15s %-10s %-20s%n",
-                            transaction.getTransactionId(),
-                            transaction.getTransactionType(),
-                            transaction.getFromCurrency() != null ? transaction.getFromCurrency() : "-",
-                            transaction.getToCurrency() != null ? transaction.getToCurrency() : "-",
-                            transaction.getFromAmount() != null ? transaction.getFromAmount() : "-",
-                            transaction.getToAmount() != null ? transaction.getToAmount() : "-",
-                            transaction.getRate(),
-                            transaction.getTimestamp());
-        }
-        System.out.println();
-    }
-}
-
-// ================================
-// MAIN CLI CLASS
-// ================================
-
-// MainCLI.java
-package main;
-
-import Service.loginService;
-import Service.WalletService;
-import Service.TransactionService;
-import Model.DC_Wallets_KK;
-import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Scanner;
 
-public class MainCLI {
-    private static Scanner scanner = new Scanner(System.in);
-    private static loginService loginSvc = new loginService();
-    private static WalletService walletSvc = new WalletService();
-    private static TransactionService transactionSvc = new TransactionService();
-    private static int activeUserId = -1;
+public class CryptoTradingCLI {
+    private final Scanner scanner;
+    private final UserService userService;
+    private final WalletService walletService;
+    private final TradingService tradingService;
+    private final CurrencyService currencyService;
+    private final TransactionService transactionService;
+    private User currentUser;
     
-    // Hardcoded BTC rate (in real application, fetch from API)
-    private static final BigDecimal BTC_USD_RATE = new BigDecimal("45000.00");
+    public CryptoTradingCLI() {
+        this.scanner = new Scanner(System.in);
+        this.userService = new UserService();
+        this.walletService = new WalletService();
+        this.tradingService = new TradingService();
+        this.currencyService = new CurrencyService();
+        this.transactionService = new TransactionService();
+    }
     
     public static void main(String[] args) {
-        System.out.println("Welcome to Crypto Trading Platform!");
+        CryptoTradingCLI app = new CryptoTradingCLI();
+        app.run();
+    }
+    
+    public void run() {
+        printHeader();
         
-        while (true) {
-            if (activeUserId == -1) {
-                showInitialMenu();
-            } else {
-                showTradingMenu();
+        try {
+            while (true) {
+                if (currentUser == null) {
+                    showAuthMenu();
+                } else {
+                    showMainMenu();
+                }
             }
+        } catch (Exception e) {
+            System.err.println("An error occurred: " + e.getMessage());
+        } finally {
+            DatabaseConnection.closeConnection();
+            scanner.close();
         }
     }
     
-    private static void showInitialMenu() {
-        System.out.println("\n=== CRYPTO TRADING PLATFORM ===");
-        System.out.println("1. Register");
-        System.out.println("2. Login");
+    private void printHeader() {
+        System.out.println("========================================");
+        System.out.println("    CRYPTO TRADING PLATFORM CLI");
+        System.out.println("========================================");
+        System.out.println();
+    }
+    
+    private void showAuthMenu() {
+        System.out.println("\n--- Authentication Menu ---");
+        System.out.println("1. Login");
+        System.out.println("2. Register");
         System.out.println("3. Exit");
         System.out.print("Choose an option: ");
         
         int choice = getIntInput();
-        
         switch (choice) {
             case 1:
-                registerUser();
+                login();
                 break;
             case 2:
-                loginUser();
+                register();
                 break;
             case 3:
-                System.out.println("Thank you for using Crypto Trading Platform!");
-                System.exit(0);
+                exitApplication();
                 break;
             default:
                 System.out.println("Invalid option. Please try again.");
         }
     }
     
-    private static void showTradingMenu() {
-        System.out.println("\n=== TRADING DASHBOARD ===");
-        System.out.println("Current BTC Rate: $" + BTC_USD_RATE);
-        System.out.println("1. View Wallets");
-        System.out.println("2. Deposit USD");
-        System.out.println("3. Buy Bitcoin");
-        System.out.println("4. Sell Bitcoin");
-        System.out.println("5. Transaction History");
-        System.out.println("6. Logout");
+    private void showMainMenu() {
+        System.out.println("\n--- Main Menu ---");
+        System.out.println("Welcome, " + currentUser.getUsername() + "!");
+        System.out.println("Wallet Address: " + FormattingUtils.formatWalletAddress(currentUser.getWalletAddress()));
+        System.out.println();
+        
+        for (String option : Constants.MAIN_MENU_OPTIONS) {
+            System.out.println(option);
+        }
         System.out.print("Choose an option: ");
         
         int choice = getIntInput();
-        
         switch (choice) {
             case 1:
-                viewWallets();
+                viewPortfolio();
                 break;
             case 2:
-                depositUSD();
+                buyCryptocurrency();
                 break;
             case 3:
-                buyBitcoin();
+                sellCryptocurrency();
                 break;
             case 4:
-                sellBitcoin();
+                transferFunds();
                 break;
             case 5:
                 viewTransactionHistory();
                 break;
             case 6:
+                viewMarketPrices();
+                break;
+            case 7:
+                accountSettings();
+                break;
+            case 8:
                 logout();
                 break;
             default:
@@ -698,425 +1143,340 @@ public class MainCLI {
         }
     }
     
-    private static void registerUser() {
-        System.out.println("\n=== USER REGISTRATION ===");
-        
-        System.out.print("Enter username: ");
+    private void login() {
+        System.out.print("Username: ");
         String username = scanner.nextLine().trim();
         
-        if (username.isEmpty()) {
-            System.out.println("Username cannot be empty.");
-            return;
-        }
-        
-        System.out.print("Enter PIN (4-6 digits): ");
+        System.out.print("PIN: ");
         String pin = scanner.nextLine().trim();
         
-        if (!isValidPin(pin)) {
-            System.out.println("PIN must be 4-6 digits.");
-            return;
+        try {
+            currentUser = userService.authenticateUser(username, pin);
+            if (currentUser != null) {
+                System.out.println("Login successful! Welcome back, " + currentUser.getUsername());
+                // Update market prices on login
+                currencyService.updateCurrencyPrices();
+            } else {
+                System.out.println("Invalid username or PIN. Please try again.");
+            }
+        } catch (SQLException e) {
+            System.err.println("Login failed: " + e.getMessage());
         }
+    }
+    
+    private void register() {
+        System.out.println("\n--- User Registration ---");
         
-        System.out.print("Enter email: ");
+        System.out.print("Username (3-20 characters, alphanumeric): ");
+        String username = scanner.nextLine().trim();
+        
+        System.out.print("PIN (4-8 digits): ");
+        String pin = scanner.nextLine().trim();
+        
+        System.out.print("Email: ");
         String email = scanner.nextLine().trim();
         
-        System.out.print("Enter phone number: ");
-        String phone = scanner.nextLine().trim();
+        System.out.print("Phone Number (optional): ");
+        String phoneNumber = scanner.nextLine().trim();
         
-        boolean registered = loginSvc.registerUser(username, pin, email, phone);
-        
-        if (registered) {
-            System.out.println("Registration successful! Please login to continue.");
-        } else {
-            System.out.println("Deposit cancelled.");
-        }
-    }
-    
-    private static void buyBitcoin() {
-        System.out.println("\n=== BUY BITCOIN ===");
-        System.out.println("Current BTC Rate: $" + BTC_USD_RATE);
-        
-        // Show current USD balance
-        DC_Wallets_KK usdWallet = walletSvc.getWallet(activeUserId, "USD");
-        if (usdWallet == null) {
-            System.out.println("USD wallet not found.");
-            return;
-        }
-        System.out.println("Available USD Balance: $" + usdWallet.getBalance());
-        
-        System.out.print("Enter USD amount to spend: $");
-        BigDecimal usdAmount = getBigDecimalInput();
-        if (usdAmount == null) return;
-        
-        if (usdAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            System.out.println("Amount must be positive.");
-            return;
-        }
-        
-        if (usdAmount.compareTo(usdWallet.getBalance()) > 0) {
-            System.out.println("Insufficient USD balance.");
-            return;
-        }
-        
-        BigDecimal btcAmount = usdAmount.divide(BTC_USD_RATE, 8, BigDecimal.ROUND_HALF_UP);
-        System.out.println("You will receive: " + btcAmount + " BTC");
-        
-        System.out.print("Confirm purchase? (y/n): ");
-        String confirm = scanner.nextLine().trim().toLowerCase();
-        
-        if (confirm.equals("y") || confirm.equals("yes")) {
-            boolean success = walletSvc.buyBTC(activeUserId, usdAmount, BTC_USD_RATE);
-            if (success) {
-                transactionSvc.recordBuy(activeUserId, usdAmount, btcAmount, BTC_USD_RATE);
-                System.out.println("Bitcoin purchase successful!");
-            } else {
-                System.out.println("Bitcoin purchase failed.");
-            }
-        } else {
-            System.out.println("Purchase cancelled.");
-        }
-    }
-    
-    private static void sellBitcoin() {
-        System.out.println("\n=== SELL BITCOIN ===");
-        System.out.println("Current BTC Rate: $" + BTC_USD_RATE);
-        
-        // Show current BTC balance
-        DC_Wallets_KK btcWallet = walletSvc.getWallet(activeUserId, "BTC");
-        if (btcWallet == null) {
-            System.out.println("BTC wallet not found.");
-            return;
-        }
-        System.out.println("Available BTC Balance: " + btcWallet.getBalance() + " BTC");
-        
-        if (btcWallet.getBalance().compareTo(BigDecimal.ZERO) == 0) {
-            System.out.println("No Bitcoin to sell.");
-            return;
-        }
-        
-        System.out.print("Enter BTC amount to sell: ");
-        BigDecimal btcAmount = getBigDecimalInput();
-        if (btcAmount == null) return;
-        
-        if (btcAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            System.out.println("Amount must be positive.");
-            return;
-        }
-        
-        if (btcAmount.compareTo(btcWallet.getBalance()) > 0) {
-            System.out.println("Insufficient BTC balance.");
-            return;
-        }
-        
-        BigDecimal usdAmount = btcAmount.multiply(BTC_USD_RATE);
-        System.out.println("You will receive: $" + usdAmount);
-        
-        System.out.print("Confirm sale? (y/n): ");
-        String confirm = scanner.nextLine().trim().toLowerCase();
-        
-        if (confirm.equals("y") || confirm.equals("yes")) {
-            boolean success = walletSvc.sellBTC(activeUserId, btcAmount, BTC_USD_RATE);
-            if (success) {
-                transactionSvc.recordSell(activeUserId, btcAmount, usdAmount, BTC_USD_RATE);
-                System.out.println("Bitcoin sale successful!");
-            } else {
-                System.out.println("Bitcoin sale failed.");
-            }
-        } else {
-            System.out.println("Sale cancelled.");
-        }
-    }
-    
-    private static void viewTransactionHistory() {
-        transactionSvc.getTransactionHistory(activeUserId);
-    }
-    
-    private static void logout() {
-        System.out.println("Logged out successfully. Goodbye!");
-        activeUserId = -1;
-    }
-    
-    // Utility methods
-    private static int getIntInput() {
         try {
-            int value = Integer.parseInt(scanner.nextLine().trim());
-            return value;
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid input. Please enter a number.");
-            return -1;
+            currentUser = userService.registerUser(username, pin, email, 
+                                                  phoneNumber.isEmpty() ? null : phoneNumber);
+            System.out.println("Registration successful! Welcome, " + currentUser.getUsername());
+            System.out.println("Your wallet address: " + currentUser.getWalletAddress());
+            System.out.println("Default wallets have been created for BTC, ETH, and USDT.");
+        } catch (SQLException e) {
+            System.err.println("Registration failed: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            System.err.println("Invalid input: " + e.getMessage());
         }
     }
     
-    private static BigDecimal getBigDecimalInput() {
+    private void viewPortfolio() {
+        System.out.println("\n--- Your Portfolio ---");
+        
         try {
-            String input = scanner.nextLine().trim();
-            return new BigDecimal(input);
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid input. Please enter a valid number.");
-            return null;
-        }
-    }
-    
-    private static boolean isValidPin(String pin) {
-        return pin.matches("\\d{4,6}");
-    }
-}
-
-// ================================
-// ENHANCED DATABASE INITIALIZATION
-// ================================
-
-/*
-SQL SCRIPTS TO CREATE MISSING TABLES:
-
--- Create DC_Currencies table
-CREATE TABLE DC_Currencies (
-    currency_code VARCHAR(10) PRIMARY KEY,
-    currency_name VARCHAR(50) NOT NULL,
-    type VARCHAR(20) CHECK (type IN ('FIAT', 'CRYPTO')) NOT NULL,
-    blockchain_network VARCHAR(50)
-);
-
--- Insert default currencies
-INSERT INTO DC_Currencies VALUES 
-('USD', 'US Dollar', 'FIAT', NULL),
-('BTC', 'Bitcoin', 'CRYPTO', 'Bitcoin'),
-('ETH', 'Ethereum', 'CRYPTO', 'Ethereum'),
-('LTC', 'Litecoin', 'CRYPTO', 'Litecoin');
-
--- Create DC_SmartContracts table
-CREATE TABLE DC_SmartContracts (
-    contract_id INT PRIMARY KEY AUTO_INCREMENT,
-    contract_type VARCHAR(50) NOT NULL,
-    terms TEXT,
-    contract_data TEXT,
-    status VARCHAR(20) DEFAULT 'ACTIVE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create DC_Blockchainrecords table  
-CREATE TABLE DC_Blockchainrecords (
-    record_id INT PRIMARY KEY AUTO_INCREMENT,
-    transaction_hash VARCHAR(255),
-    block_number VARCHAR(50),
-    contract_address VARCHAR(255),
-    event_type VARCHAR(50),
-    data_payload TEXT,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Add indexes for better performance
-CREATE INDEX idx_wallets_user_currency ON DC_Wallets(user_id, currency_code);
-CREATE INDEX idx_transactions_user_timestamp ON DC_Transactions(user_id, timestamp);
-CREATE INDEX idx_blockchain_hash ON DC_Blockchainrecords(transaction_hash);
-*/
-
-// ================================
-// ADDITIONAL UTILITY CLASSES
-// ================================
-
-// ExchangeRateService.java (Future enhancement)
-package Service;
-
-import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Map;
-
-public class ExchangeRateService {
-    private Map<String, BigDecimal> rates;
-    
-    public ExchangeRateService() {
-        this.rates = new HashMap<>();
-        // Initialize with hardcoded rates (in production, fetch from API)
-        rates.put("BTC_USD", new BigDecimal("45000.00"));
-        rates.put("ETH_USD", new BigDecimal("3000.00"));
-        rates.put("LTC_USD", new BigDecimal("100.00"));
-    }
-    
-    public BigDecimal getRate(String fromCurrency, String toCurrency) {
-        String pair = fromCurrency + "_" + toCurrency;
-        return rates.getOrDefault(pair, BigDecimal.ONE);
-    }
-    
-    public void updateRate(String fromCurrency, String toCurrency, BigDecimal rate) {
-        String pair = fromCurrency + "_" + toCurrency;
-        rates.put(pair, rate);
-    }
-    
-    // Method to fetch real-time rates from external API
-    public void fetchLiveRates() {
-        // TODO: Implement API integration with CoinGecko or similar service
-        // This would replace hardcoded rates with real-time data
-    }
-}
-
-// ValidationUtils.java
-package utils;
-
-import java.math.BigDecimal;
-import java.util.regex.Pattern;
-
-public class ValidationUtils {
-    private static final Pattern EMAIL_PATTERN = 
-        Pattern.compile("^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})$");
-    
-    private static final Pattern PHONE_PATTERN = 
-        Pattern.compile("^\\+?[1-9]\\d{1,14}$");
-    
-    public static boolean isValidEmail(String email) {
-        return email != null && EMAIL_PATTERN.matcher(email).matches();
-    }
-    
-    public static boolean isValidPhone(String phone) {
-        return phone != null && PHONE_PATTERN.matcher(phone).matches();
-    }
-    
-    public static boolean isValidAmount(BigDecimal amount) {
-        return amount != null && amount.compareTo(BigDecimal.ZERO) > 0;
-    }
-    
-    public static boolean isValidCurrency(String currency) {
-        return currency != null && currency.matches("^[A-Z]{3}$");
-    }
-    
-    public static String sanitizeInput(String input) {
-        if (input == null) return null;
-        return input.trim().replaceAll("[<>\"'&]", "");
-    }
-}
-
-// ErrorHandler.java
-package utils;
-
-import java.sql.SQLException;
-
-public class ErrorHandler {
-    
-    public static void handleSQLException(SQLException e, String operation) {
-        System.err.println("Database error during " + operation + ": " + e.getMessage());
-        
-        // Log specific SQL error codes
-        switch (e.getErrorCode()) {
-            case 1062: // Duplicate entry
-                System.err.println("Duplicate entry detected.");
-                break;
-            case 1452: // Foreign key constraint
-                System.err.println("Foreign key constraint violation.");
-                break;
-            case 1054: // Unknown column
-                System.err.println("Database schema issue - unknown column.");
-                break;
-            default:
-                System.err.println("SQL Error Code: " + e.getErrorCode());
-        }
-    }
-    
-    public static void handleGenericException(Exception e, String operation) {
-        System.err.println("Error during " + operation + ": " + e.getMessage());
-        e.printStackTrace();
-    }
-}
-
-// ================================
-// CONFIGURATION CLASS
-// ================================
-
-// AppConfig.java
-package utils;
-
-import java.math.BigDecimal;
-import java.util.Properties;
-
-public class AppConfig {
-    private static final Properties config = new Properties();
-    
-    static {
-        // Default configuration values
-        config.setProperty("app.name", "Crypto Trading Platform");
-        config.setProperty("app.version", "1.0.0");
-        config.setProperty("transaction.fee.percentage", "0.001"); // 0.1%
-        config.setProperty("min.transaction.amount", "0.00000001");
-        config.setProperty("max.transaction.amount", "1000000");
-        config.setProperty("default.btc.rate", "45000.00");
-    }
-    
-    public static String getProperty(String key) {
-        return config.getProperty(key);
-    }
-    
-    public static BigDecimal getBigDecimalProperty(String key) {
-        String value = config.getProperty(key);
-        return value != null ? new BigDecimal(value) : BigDecimal.ZERO;
-    }
-    
-    public static void setProperty(String key, String value) {
-        config.setProperty(key, value);
-    }
-}Registration failed. Username might already exist.");
-        }
-    }
-    
-    private static void loginUser() {
-        System.out.println("\n=== USER LOGIN ===");
-        
-        System.out.print("Enter username: ");
-        String username = scanner.nextLine().trim();
-        
-        System.out.print("Enter PIN: ");
-        String pin = scanner.nextLine().trim();
-        
-        int userId = loginSvc.authenticate(username, pin);
-        
-        if (userId > 0) {
-            activeUserId = userId;
-            System.out.println("Login successful! Welcome " + username + "!");
-        } else {
-            System.out.println("Invalid credentials. Please try again.");
-        }
-    }
-    
-    private static void viewWallets() {
-        System.out.println("\n=== YOUR WALLETS ===");
-        List<DC_Wallets_KK> wallets = walletSvc.getAllWallets(activeUserId);
-        
-        if (wallets.isEmpty()) {
-            System.out.println("No wallets found.");
-            return;
-        }
-        
-        System.out.printf("%-10s %-15s %-10s%n", "Currency", "Balance", "Status");
-        System.out.println("-".repeat(35));
-        
-        for (DC_Wallets_KK wallet : wallets) {
-            System.out.printf("%-10s %-15s %-10s%n", 
-                            wallet.getCurrencyCode(), 
-                            wallet.getBalance(), 
-                            wallet.getStatus());
-        }
-    }
-    
-    private static void depositUSD() {
-        System.out.println("\n=== DEPOSIT USD ===");
-        System.out.print("Enter amount to deposit: $");
-        
-        BigDecimal amount = getBigDecimalInput();
-        if (amount == null) return;
-        
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            System.out.println("Amount must be positive.");
-            return;
-        }
-        
-        System.out.print("Confirm deposit of $" + amount + "? (y/n): ");
-        String confirm = scanner.nextLine().trim().toLowerCase();
-        
-        if (confirm.equals("y") || confirm.equals("yes")) {
-            boolean success = walletSvc.depositFiat(activeUserId, amount);
-            if (success) {
-                transactionSvc.recordDeposit(activeUserId, amount);
-                System.out.println("Deposit successful!");
-            } else {
-                System.out.println("Deposit failed.");
+            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
+            List<Currency> currencies = currencyService.getAllCurrencies();
+            
+            BigDecimal totalValueUSDT = BigDecimal.ZERO;
+            
+            System.out.printf("%-8s %-15s %-15s %-15s %-15s%n", 
+                            "Currency", "Name", "Balance", "Price (USDT)", "Value (USDT)");
+            System.out.println("-".repeat(75));
+            
+            for (Wallet wallet : wallets) {
+                Currency currency = currencies.stream()
+                    .filter(c -> c.getCurrencyCode().equals(wallet.getCurrencyCode()))
+                    .findFirst().orElse(null);
+                
+                if (currency != null) {
+                    BigDecimal balance = wallet.getBalance();
+                    BigDecimal price = currency.getCurrentPrice();
+                    BigDecimal value = balance.multiply(price);
+                    totalValueUSDT = totalValueUSDT.add(value);
+                    
+                    System.out.printf("%-8s %-15s %-15s %-15s %-15s%n",
+                                    currency.getCurrencyCode(),
+                                    currency.getCurrencyName(),
+                                    FormattingUtils.formatCurrency(balance),
+                                    FormattingUtils.formatPrice(price),
+                                    FormattingUtils.formatPrice(value));
+                }
             }
-        } else {
-            System.out.println("
+            
+            System.out.println("-".repeat(75));
+            System.out.printf("%-53s %-15s%n", "Total Portfolio Value:", 
+                            FormattingUtils.formatPrice(totalValueUSDT) + " USDT");
+            
+        } catch (SQLException e) {
+            System.err.println("Failed to load portfolio: " + e.getMessage());
+        }
+    }
+    
+    private void buyCryptocurrency() {
+        System.out.println("\n--- Buy Cryptocurrency ---");
+        
+        try {
+            // Show available currencies
+            List<Currency> currencies = currencyService.getAllCurrencies();
+            System.out.println("Available Cryptocurrencies:");
+            for (Currency currency : currencies) {
+                if (!"USDT".equals(currency.getCurrencyCode())) {
+                    System.out.printf("%-8s - %-15s (Price: %s USDT)%n",
+                                    currency.getCurrencyCode(),
+                                    currency.getCurrencyName(),
+                                    FormattingUtils.formatPrice(currency.getCurrentPrice()));
+                }
+            }
+            
+            // Check USDT balance
+            Wallet usdtWallet = walletService.getUserWallet(currentUser.getUserId(), "USDT");
+            System.out.println("\nYour USDT Balance: " + 
+                             FormattingUtils.formatCurrency(usdtWallet.getBalance()) + " USDT");
+            
+            System.out.print("\nEnter currency code to buy: ");
+            String currencyCode = scanner.nextLine().trim().toUpperCase();
+            
+            Currency selectedCurrency = currencyService.getCurrency(currencyCode);
+            if (selectedCurrency == null || "USDT".equals(currencyCode)) {
+                System.out.println("Invalid currency code.");
+                return;
+            }
+            
+            System.out.print("Enter amount to buy: ");
+            BigDecimal amount = getBigDecimalInput();
+            
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                System.out.println("Amount must be greater than zero.");
+                return;
+            }
+            
+            BigDecimal price = selectedCurrency.getCurrentPrice();
+            BigDecimal totalCost = amount.multiply(price);
+            BigDecimal fee = totalCost.multiply(Constants.TRADING_FEE_PERCENTAGE);
+            BigDecimal totalWithFee = totalCost.add(fee);
+            
+            System.out.printf("\nTrade Summary:%n");
+            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
+            System.out.printf("Price per unit: %s USDT%n", FormattingUtils.formatPrice(price));
+            System.out.printf("Subtotal: %s USDT%n", FormattingUtils.formatPrice(totalCost));
+            System.out.printf("Trading fee (0.1%%): %s USDT%n", FormattingUtils.formatPrice(fee));
+            System.out.printf("Total cost: %s USDT%n", FormattingUtils.formatPrice(totalWithFee));
+            
+            if (usdtWallet.getBalance().compareTo(totalWithFee) < 0) {
+                System.out.println("\nInsufficient USDT balance.");
+                return;
+            }
+            
+            System.out.print("\nConfirm purchase? (y/n): ");
+            String confirm = scanner.nextLine().trim().toLowerCase();
+            
+            if ("y".equals(confirm) || "yes".equals(confirm)) {
+                Transaction transaction = tradingService.buyCryptocurrency(
+                    currentUser.getUserId(), currencyCode, amount, price);
+                
+                System.out.println("\nPurchase successful!");
+                System.out.println("Transaction ID: " + transaction.getTransactionId());
+                System.out.println("Transaction Hash: " + 
+                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
+            } else {
+                System.out.println("Purchase cancelled.");
+            }
+            
+        } catch (SQLException e) {
+            System.err.println("Purchase failed: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+    }
+    
+    private void sellCryptocurrency() {
+        System.out.println("\n--- Sell Cryptocurrency ---");
+        
+        try {
+            // Show user's portfolio
+            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
+            List<Currency> currencies = currencyService.getAllCurrencies();
+            
+            System.out.println("Your Holdings:");
+            for (Wallet wallet : wallets) {
+                if (wallet.getBalance().compareTo(BigDecimal.ZERO) > 0 && 
+                    !"USDT".equals(wallet.getCurrencyCode())) {
+                    
+                    Currency currency = currencies.stream()
+                        .filter(c -> c.getCurrencyCode().equals(wallet.getCurrencyCode()))
+                        .findFirst().orElse(null);
+                    
+                    if (currency != null) {
+                        System.out.printf("%-8s - %s (Price: %s USDT)%n",
+                                        currency.getCurrencyCode(),
+                                        FormattingUtils.formatCurrency(wallet.getBalance()),
+                                        FormattingUtils.formatPrice(currency.getCurrentPrice()));
+                    }
+                }
+            }
+            
+            System.out.print("\nEnter currency code to sell: ");
+            String currencyCode = scanner.nextLine().trim().toUpperCase();
+            
+            Currency selectedCurrency = currencyService.getCurrency(currencyCode);
+            if (selectedCurrency == null || "USDT".equals(currencyCode)) {
+                System.out.println("Invalid currency code.");
+                return;
+            }
+            
+            Wallet wallet = walletService.getUserWallet(currentUser.getUserId(), currencyCode);
+            if (wallet == null || wallet.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
+                System.out.println("You don't have any " + currencyCode + " to sell.");
+                return;
+            }
+            
+            System.out.printf("Available balance: %s %s%n", 
+                            FormattingUtils.formatCurrency(wallet.getBalance()), currencyCode);
+            
+            System.out.print("Enter amount to sell: ");
+            BigDecimal amount = getBigDecimalInput();
+            
+            if (amount.compareTo(BigDecimal.ZERO) <= 0 || 
+                amount.compareTo(wallet.getBalance()) > 0) {
+                System.out.println("Invalid amount.");
+                return;
+            }
+            
+            BigDecimal price = selectedCurrency.getCurrentPrice();
+            BigDecimal totalValue = amount.multiply(price);
+            BigDecimal fee = totalValue.multiply(Constants.TRADING_FEE_PERCENTAGE);
+            BigDecimal netValue = totalValue.subtract(fee);
+            
+            System.out.printf("\nTrade Summary:%n");
+            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
+            System.out.printf("Price per unit: %s USDT%n", FormattingUtils.formatPrice(price));
+            System.out.printf("Gross value: %s USDT%n", FormattingUtils.formatPrice(totalValue));
+            System.out.printf("Trading fee (0.1%%): %s USDT%n", FormattingUtils.formatPrice(fee));
+            System.out.printf("Net proceeds: %s USDT%n", FormattingUtils.formatPrice(netValue));
+            
+            System.out.print("\nConfirm sale? (y/n): ");
+            String confirm = scanner.nextLine().trim().toLowerCase();
+            
+            if ("y".equals(confirm) || "yes".equals(confirm)) {
+                Transaction transaction = tradingService.sellCryptocurrency(
+                    currentUser.getUserId(), currencyCode, amount, price);
+                
+                System.out.println("\nSale successful!");
+                System.out.println("Transaction ID: " + transaction.getTransactionId());
+                System.out.println("Transaction Hash: " + 
+                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
+            } else {
+                System.out.println("Sale cancelled.");
+            }
+            
+        } catch (SQLException e) {
+            System.err.println("Sale failed: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+    }
+    
+    private void transferFunds() {
+        System.out.println("\n--- Transfer Funds ---");
+        
+        try {
+            System.out.print("Enter recipient's user ID: ");
+            Long recipientId = getLongInput();
+            
+            if (recipientId.equals(currentUser.getUserId())) {
+                System.out.println("Cannot transfer to yourself.");
+                return;
+            }
+            
+            // Verify recipient exists
+            User recipient = userService.getUserById(recipientId);
+            if (recipient == null) {
+                System.out.println("Recipient not found.");
+                return;
+            }
+            
+            System.out.println("Recipient: " + recipient.getUsername());
+            
+            // Show user's balances
+            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
+            System.out.println("\nYour Balances:");
+            for (Wallet wallet : wallets) {
+                if (wallet.getBalance().compareTo(BigDecimal.ZERO) > 0) {
+                    System.out.printf("%-8s: %s%n",
+                                    wallet.getCurrencyCode(),
+                                    FormattingUtils.formatCurrency(wallet.getBalance()));
+                }
+            }
+            
+            System.out.print("\nEnter currency code to transfer: ");
+            String currencyCode = scanner.nextLine().trim().toUpperCase();
+            
+            Wallet wallet = walletService.getUserWallet(currentUser.getUserId(), currencyCode);
+            if (wallet == null || wallet.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
+                System.out.println("You don't have any " + currencyCode + " to transfer.");
+                return;
+            }
+            
+            System.out.print("Enter amount to transfer: ");
+            BigDecimal amount = getBigDecimalInput();
+            
+            BigDecimal transferFee = amount.multiply(new BigDecimal("0.0005"));
+            BigDecimal totalDeduction = amount.add(transferFee);
+            
+            if (amount.compareTo(BigDecimal.ZERO) <= 0 || 
+                totalDeduction.compareTo(wallet.getBalance()) > 0) {
+                System.out.println("Invalid amount or insufficient balance.");
+                return;
+            }
+            
+            System.out.printf("\nTransfer Summary:%n");
+            System.out.printf("Recipient: %s%n", recipient.getUsername());
+            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
+            System.out.printf("Transfer fee (0.05%%): %s %s%n", 
+                            FormattingUtils.formatCurrency(transferFee), currencyCode);
+            System.out.printf("Total deduction: %s %s%n", 
+                            FormattingUtils.formatCurrency(totalDeduction), currencyCode);
+            
+            System.out.print("\nConfirm transfer? (y/n): ");
+            String confirm = scanner.nextLine().trim().toLowerCase();
+            
+            if ("y".equals(confirm) || "yes".equals(confirm)) {
+                Transaction transaction = tradingService.transferFunds(
+                    currentUser.getUserId(), recipientId, currencyCode, amount);
+                
+                System.out.println("\nTransfer successful!");
+                System.out.println("Transaction ID: " + transaction.getTransactionId());
+                System.out.println("Transaction Hash: " + 
+                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
+            } else {
+                System.out.println("Transfer cancelled.");
+            }
+            
+        } catch (SQLException e) {
+            System.err.println("Transfer failed: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+    }
