@@ -1,645 +1,201 @@
-// Main CLI Application for Crypto Trading Platform
+// Simple deposit methods for CryptoTradingCLI.java
 
-// CryptoTradingCLI.java
-package com.cryptotrading;
-
-import com.cryptotrading.model.*;
-import com.cryptotrading.service.*;
-import com.cryptotrading.utils.*;
-
-import java.math.BigDecimal;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Scanner;
-
-public class CryptoTradingCLI {
-    private final Scanner scanner;
-    private final UserService userService;
-    private final WalletService walletService;
-    private final TradingService tradingService;
-    private final CurrencyService currencyService;
-    private final TransactionService transactionService;
-    private User currentUser;
+private void depositFunds() {
+    System.out.println("\n--- Deposit Funds ---");
+    System.out.println("1. Bank Transfer");
+    System.out.println("2. Add Test Funds (Demo)");
+    System.out.println("3. Back");
+    System.out.print("Choose option: ");
     
-    public CryptoTradingCLI() {
-        this.scanner = new Scanner(System.in);
-        this.userService = new UserService();
-        this.walletService = new WalletService();
-        this.tradingService = new TradingService();
-        this.currencyService = new CurrencyService();
-        this.transactionService = new TransactionService();
-    }
-    
-    public static void main(String[] args) {
-        CryptoTradingCLI app = new CryptoTradingCLI();
-        app.run();
-    }
-    
-    public void run() {
-        printHeader();
-        
-        try {
-            while (true) {
-                if (currentUser == null) {
-                    showAuthMenu();
-                } else {
-                    showMainMenu();
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("An error occurred: " + e.getMessage());
-        } finally {
-            DatabaseConnection.closeConnection();
-            scanner.close();
-        }
-    }
-    
-    private void printHeader() {
-        System.out.println("========================================");
-        System.out.println("    CRYPTO TRADING PLATFORM CLI");
-        System.out.println("========================================");
-        System.out.println();
-    }
-    
-    private void showAuthMenu() {
-        System.out.println("\n--- Authentication Menu ---");
-        System.out.println("1. Login");
-        System.out.println("2. Register");
-        System.out.println("3. Exit");
-        System.out.print("Choose an option: ");
-        
-        int choice = getIntInput();
-        switch (choice) {
-            case 1:
-                login();
-                break;
-            case 2:
-                register();
-                break;
-            case 3:
-                exitApplication();
-                break;
-            default:
-                System.out.println("Invalid option. Please try again.");
-        }
-    }
-    
-    private void showMainMenu() {
-        System.out.println("\n--- Main Menu ---");
-        System.out.println("Welcome, " + currentUser.getUsername() + "!");
-        System.out.println("Wallet Address: " + FormattingUtils.formatWalletAddress(currentUser.getWalletAddress()));
-        System.out.println();
-        
-        for (String option : Constants.MAIN_MENU_OPTIONS) {
-            System.out.println(option);
-        }
-        System.out.print("Choose an option: ");
-        
-        int choice = getIntInput();
-        switch (choice) {
-            case 1:
-                viewPortfolio();
-                break;
-            case 2:
-                buyCryptocurrency();
-                break;
-            case 3:
-                sellCryptocurrency();
-                break;
-            case 4:
-                transferFunds();
-                break;
-            case 5:
-                viewTransactionHistory();
-                break;
-            case 6:
-                viewMarketPrices();
-                break;
-            case 7:
-                accountSettings();
-                break;
-            case 8:
-                logout();
-                break;
-            default:
-                System.out.println("Invalid option. Please try again.");
-        }
-    }
-    
-    private void login() {
-        System.out.print("Username: ");
-        String username = scanner.nextLine().trim();
-        
-        System.out.print("PIN: ");
-        String pin = scanner.nextLine().trim();
-        
-        try {
-            currentUser = userService.authenticateUser(username, pin);
-            if (currentUser != null) {
-                System.out.println("Login successful! Welcome back, " + currentUser.getUsername());
-                // Update market prices on login
-                currencyService.updateCurrencyPrices();
-            } else {
-                System.out.println("Invalid username or PIN. Please try again.");
-            }
-        } catch (SQLException e) {
-            System.err.println("Login failed: " + e.getMessage());
-        }
-    }
-    
-    private void register() {
-        System.out.println("\n--- User Registration ---");
-        
-        System.out.print("Username (3-20 characters, alphanumeric): ");
-        String username = scanner.nextLine().trim();
-        
-        System.out.print("PIN (4-8 digits): ");
-        String pin = scanner.nextLine().trim();
-        
-        System.out.print("Email: ");
-        String email = scanner.nextLine().trim();
-        
-        System.out.print("Phone Number (optional): ");
-        String phoneNumber = scanner.nextLine().trim();
-        
-        try {
-            currentUser = userService.registerUser(username, pin, email, 
-                                                  phoneNumber.isEmpty() ? null : phoneNumber);
-            System.out.println("Registration successful! Welcome, " + currentUser.getUsername());
-            System.out.println("Your wallet address: " + currentUser.getWalletAddress());
-            System.out.println("Default wallets have been created for BTC, ETH, and USDT.");
-        } catch (SQLException e) {
-            System.err.println("Registration failed: " + e.getMessage());
-        } catch (IllegalArgumentException e) {
-            System.err.println("Invalid input: " + e.getMessage());
-        }
-    }
-    
-    private void viewPortfolio() {
-        System.out.println("\n--- Your Portfolio ---");
-        
-        try {
-            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
-            List<Currency> currencies = currencyService.getAllCurrencies();
-            
-            BigDecimal totalValueUSDT = BigDecimal.ZERO;
-            
-            System.out.printf("%-8s %-15s %-15s %-15s %-15s%n", 
-                            "Currency", "Name", "Balance", "Price (USDT)", "Value (USDT)");
-            System.out.println("-".repeat(75));
-            
-            for (Wallet wallet : wallets) {
-                Currency currency = currencies.stream()
-                    .filter(c -> c.getCurrencyCode().equals(wallet.getCurrencyCode()))
-                    .findFirst().orElse(null);
-                
-                if (currency != null) {
-                    BigDecimal balance = wallet.getBalance();
-                    BigDecimal price = currency.getCurrentPrice();
-                    BigDecimal value = balance.multiply(price);
-                    totalValueUSDT = totalValueUSDT.add(value);
-                    
-                    System.out.printf("%-8s %-15s %-15s %-15s %-15s%n",
-                                    currency.getCurrencyCode(),
-                                    currency.getCurrencyName(),
-                                    FormattingUtils.formatCurrency(balance),
-                                    FormattingUtils.formatPrice(price),
-                                    FormattingUtils.formatPrice(value));
-                }
-            }
-            
-            System.out.println("-".repeat(75));
-            System.out.printf("%-53s %-15s%n", "Total Portfolio Value:", 
-                            FormattingUtils.formatPrice(totalValueUSDT) + " USDT");
-            
-        } catch (SQLException e) {
-            System.err.println("Failed to load portfolio: " + e.getMessage());
-        }
-    }
-    
-    private void buyCryptocurrency() {
-        System.out.println("\n--- Buy Cryptocurrency ---");
-        
-        try {
-            // Show available currencies
-            List<Currency> currencies = currencyService.getAllCurrencies();
-            System.out.println("Available Cryptocurrencies:");
-            for (Currency currency : currencies) {
-                if (!"USDT".equals(currency.getCurrencyCode())) {
-                    System.out.printf("%-8s - %-15s (Price: %s USDT)%n",
-                                    currency.getCurrencyCode(),
-                                    currency.getCurrencyName(),
-                                    FormattingUtils.formatPrice(currency.getCurrentPrice()));
-                }
-            }
-            
-            // Check USDT balance
-            Wallet usdtWallet = walletService.getUserWallet(currentUser.getUserId(), "USDT");
-            System.out.println("\nYour USDT Balance: " + 
-                             FormattingUtils.formatCurrency(usdtWallet.getBalance()) + " USDT");
-            
-            System.out.print("\nEnter currency code to buy: ");
-            String currencyCode = scanner.nextLine().trim().toUpperCase();
-            
-            Currency selectedCurrency = currencyService.getCurrency(currencyCode);
-            if (selectedCurrency == null || "USDT".equals(currencyCode)) {
-                System.out.println("Invalid currency code.");
-                return;
-            }
-            
-            System.out.print("Enter amount to buy: ");
-            BigDecimal amount = getBigDecimalInput();
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-                System.out.println("Amount must be greater than zero.");
-                return;
-            }
-            
-            BigDecimal price = selectedCurrency.getCurrentPrice();
-            BigDecimal totalCost = amount.multiply(price);
-            BigDecimal fee = totalCost.multiply(Constants.TRADING_FEE_PERCENTAGE);
-            BigDecimal totalWithFee = totalCost.add(fee);
-            
-            System.out.printf("\nTrade Summary:%n");
-            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
-            System.out.printf("Price per unit: %s USDT%n", FormattingUtils.formatPrice(price));
-            System.out.printf("Subtotal: %s USDT%n", FormattingUtils.formatPrice(totalCost));
-            System.out.printf("Trading fee (0.1%%): %s USDT%n", FormattingUtils.formatPrice(fee));
-            System.out.printf("Total cost: %s USDT%n", FormattingUtils.formatPrice(totalWithFee));
-            
-            if (usdtWallet.getBalance().compareTo(totalWithFee) < 0) {
-                System.out.println("\nInsufficient USDT balance.");
-                return;
-            }
-            
-            System.out.print("\nConfirm purchase? (y/n): ");
-            String confirm = scanner.nextLine().trim().toLowerCase();
-            
-            if ("y".equals(confirm) || "yes".equals(confirm)) {
-                Transaction transaction = tradingService.buyCryptocurrency(
-                    currentUser.getUserId(), currencyCode, amount, price);
-                
-                System.out.println("\nPurchase successful!");
-                System.out.println("Transaction ID: " + transaction.getTransactionId());
-                System.out.println("Transaction Hash: " + 
-                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
-            } else {
-                System.out.println("Purchase cancelled.");
-            }
-            
-        } catch (SQLException e) {
-            System.err.println("Purchase failed: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-        }
-    }
-    
-    private void sellCryptocurrency() {
-        System.out.println("\n--- Sell Cryptocurrency ---");
-        
-        try {
-            // Show user's portfolio
-            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
-            List<Currency> currencies = currencyService.getAllCurrencies();
-            
-            System.out.println("Your Holdings:");
-            for (Wallet wallet : wallets) {
-                if (wallet.getBalance().compareTo(BigDecimal.ZERO) > 0 && 
-                    !"USDT".equals(wallet.getCurrencyCode())) {
-                    
-                    Currency currency = currencies.stream()
-                        .filter(c -> c.getCurrencyCode().equals(wallet.getCurrencyCode()))
-                        .findFirst().orElse(null);
-                    
-                    if (currency != null) {
-                        System.out.printf("%-8s - %s (Price: %s USDT)%n",
-                                        currency.getCurrencyCode(),
-                                        FormattingUtils.formatCurrency(wallet.getBalance()),
-                                        FormattingUtils.formatPrice(currency.getCurrentPrice()));
-                    }
-                }
-            }
-            
-            System.out.print("\nEnter currency code to sell: ");
-            String currencyCode = scanner.nextLine().trim().toUpperCase();
-            
-            Currency selectedCurrency = currencyService.getCurrency(currencyCode);
-            if (selectedCurrency == null || "USDT".equals(currencyCode)) {
-                System.out.println("Invalid currency code.");
-                return;
-            }
-            
-            Wallet wallet = walletService.getUserWallet(currentUser.getUserId(), currencyCode);
-            if (wallet == null || wallet.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
-                System.out.println("You don't have any " + currencyCode + " to sell.");
-                return;
-            }
-            
-            System.out.printf("Available balance: %s %s%n", 
-                            FormattingUtils.formatCurrency(wallet.getBalance()), currencyCode);
-            
-            System.out.print("Enter amount to sell: ");
-            BigDecimal amount = getBigDecimalInput();
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0 || 
-                amount.compareTo(wallet.getBalance()) > 0) {
-                System.out.println("Invalid amount.");
-                return;
-            }
-            
-            BigDecimal price = selectedCurrency.getCurrentPrice();
-            BigDecimal totalValue = amount.multiply(price);
-            BigDecimal fee = totalValue.multiply(Constants.TRADING_FEE_PERCENTAGE);
-            BigDecimal netValue = totalValue.subtract(fee);
-            
-            System.out.printf("\nTrade Summary:%n");
-            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
-            System.out.printf("Price per unit: %s USDT%n", FormattingUtils.formatPrice(price));
-            System.out.printf("Gross value: %s USDT%n", FormattingUtils.formatPrice(totalValue));
-            System.out.printf("Trading fee (0.1%%): %s USDT%n", FormattingUtils.formatPrice(fee));
-            System.out.printf("Net proceeds: %s USDT%n", FormattingUtils.formatPrice(netValue));
-            
-            System.out.print("\nConfirm sale? (y/n): ");
-            String confirm = scanner.nextLine().trim().toLowerCase();
-            
-            if ("y".equals(confirm) || "yes".equals(confirm)) {
-                Transaction transaction = tradingService.sellCryptocurrency(
-                    currentUser.getUserId(), currencyCode, amount, price);
-                
-                System.out.println("\nSale successful!");
-                System.out.println("Transaction ID: " + transaction.getTransactionId());
-                System.out.println("Transaction Hash: " + 
-                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
-            } else {
-                System.out.println("Sale cancelled.");
-            }
-            
-        } catch (SQLException e) {
-            System.err.println("Sale failed: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-        }
-    }
-    
-    private void transferFunds() {
-        System.out.println("\n--- Transfer Funds ---");
-        
-        try {
-            System.out.print("Enter recipient's user ID: ");
-            Long recipientId = getLongInput();
-            
-            if (recipientId.equals(currentUser.getUserId())) {
-                System.out.println("Cannot transfer to yourself.");
-                return;
-            }
-            
-            // Verify recipient exists
-            User recipient = userService.getUserById(recipientId);
-            if (recipient == null) {
-                System.out.println("Recipient not found.");
-                return;
-            }
-            
-            System.out.println("Recipient: " + recipient.getUsername());
-            
-            // Show user's balances
-            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
-            System.out.println("\nYour Balances:");
-            for (Wallet wallet : wallets) {
-                if (wallet.getBalance().compareTo(BigDecimal.ZERO) > 0) {
-                    System.out.printf("%-8s: %s%n",
-                                    wallet.getCurrencyCode(),
-                                    FormattingUtils.formatCurrency(wallet.getBalance()));
-                }
-            }
-            
-            System.out.print("\nEnter currency code to transfer: ");
-            String currencyCode = scanner.nextLine().trim().toUpperCase();
-            
-            Wallet wallet = walletService.getUserWallet(currentUser.getUserId(), currencyCode);
-            if (wallet == null || wallet.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
-                System.out.println("You don't have any " + currencyCode + " to transfer.");
-                return;
-            }
-            
-            System.out.print("Enter amount to transfer: ");
-            BigDecimal amount = getBigDecimalInput();
-            
-            BigDecimal transferFee = amount.multiply(new BigDecimal("0.0005"));
-            BigDecimal totalDeduction = amount.add(transferFee);
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0 || 
-                totalDeduction.compareTo(wallet.getBalance()) > 0) {
-                System.out.println("Invalid amount or insufficient balance.");
-                return;
-            }
-            
-            System.out.printf("\nTransfer Summary:%n");
-            System.out.printf("Recipient: %s%n", recipient.getUsername());
-            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
-            System.out.printf("Transfer fee (0.05%%): %s %s%n", 
-                            FormattingUtils.formatCurrency(transferFee), currencyCode);
-            System.out.printf("Total deduction: %s %s%n", 
-                            FormattingUtils.formatCurrency(totalDeduction), currencyCode);
-            
-            System.out.print("\nConfirm transfer? (y/n): ");
-            String confirm = scanner.nextLine().trim().toLowerCase();
-            
-            if ("y".equals(confirm) || "yes".equals(confirm)) {
-                Transaction transaction = tradingService.transferFunds(
-                    currentUser.getUserId(), recipientId, currencyCode, amount);
-                
-                System.out.println("\nTransfer successful!");
-                System.out.println("Transaction ID: " + transaction.getTransactionId());
-                System.out.println("Transaction Hash: " + 
-                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
-            } else {
-                System.out.println("Transfer cancelled.");
-            }
-            
-        } catch (SQLException e) {
-            System.err.println("Transfer failed: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-        }
-    }
-    
-    private void viewTransactionHistory() {
-        System.out.println("\n--- Transaction History ---");
-        
-        try {
-            List<Transaction> transactions = transactionService.getUserTransactions(currentUser.getUserId());
-            
-            if (transactions.isEmpty()) {
-                System.out.println("No transactions found.");
-                return;
-            }
-            
-            System.out.printf("%-6s %-12s %-8s %-8s %-15s %-12s %-10s%n",
-                            "ID", "Type", "From", "To", "Amount", "Status", "Date");
-            System.out.println("-".repeat(85));
-            
-            for (Transaction tx : transactions) {
-                System.out.printf("%-6d %-12s %-8s %-8s %-15s %-12s %-10s%n",
-                                tx.getTransactionId(),
-                                tx.getTransactionType(),
-                                tx.getFromCurrency() != null ? tx.getFromCurrency() : "-",
-                                tx.getToCurrency() != null ? tx.getToCurrency() : "-",
-                                FormattingUtils.formatCurrency(tx.getAmount()),
-                                tx.getStatus(),
-                                FormattingUtils.formatDateTime(tx.getCreatedAt()).substring(0, 10));
-            }
-            
-        } catch (SQLException e) {
-            System.err.println("Failed to load transaction history: " + e.getMessage());
-        }
-    }
-    
-    private void viewMarketPrices() {
-        System.out.println("\n--- Market Prices ---");
-        
-        try {
-            // Update prices before showing
-            currencyService.updateCurrencyPrices();
-            
-            List<Currency> currencies = currencyService.getAllCurrencies();
-            
-            System.out.printf("%-8s %-15s %-8s %-15s %-15s%n",
-                            "Code", "Name", "Symbol", "Price (USDT)", "Network");
-            System.out.println("-".repeat(70));
-            
-            for (Currency currency : currencies) {
-                System.out.printf("%-8s %-15s %-8s %-15s %-15s%n",
-                                currency.getCurrencyCode(),
-                                currency.getCurrencyName(),
-                                currency.getSymbol(),
-                                FormattingUtils.formatPrice(currency.getCurrentPrice()),
-                                currency.getBlockchainNetwork());
-            }
-            
-            System.out.println("\nNote: Prices are simulated and update automatically.");
-            
-        } catch (SQLException e) {
-            System.err.println("Failed to load market prices: " + e.getMessage());
-        }
-    }
-    
-    private void accountSettings() {
-        System.out.println("\n--- Account Settings ---");
-        System.out.println("1. View Profile");
-        System.out.println("2. Update Email");
-        System.out.println("3. Update Phone Number");
-        System.out.println("4. Back to Main Menu");
-        System.out.print("Choose an option: ");
-        
-        int choice = getIntInput();
-        switch (choice) {
-            case 1:
-                viewProfile();
-                break;
-            case 2:
-                updateEmail();
-                break;
-            case 3:
-                updatePhoneNumber();
-                break;
-            case 4:
-                return;
-            default:
-                System.out.println("Invalid option.");
-        }
-    }
-    
-    private void viewProfile() {
-        System.out.println("\n--- Profile Information ---");
-        System.out.println("User ID: " + currentUser.getUserId());
-        System.out.println("Username: " + currentUser.getUsername());
-        System.out.println("Email: " + currentUser.getEmail());
-        System.out.println("Phone: " + (currentUser.getPhoneNumber() != null ? currentUser.getPhoneNumber() : "Not set"));
-        System.out.println("KYC Status: " + currentUser.getKycStatus());
-        System.out.println("Wallet Address: " + currentUser.getWalletAddress());
-        System.out.println("Member Since: " + FormattingUtils.formatDateTime(currentUser.getCreatedAt()));
-    }
-    
-    private void updateEmail() {
-        System.out.print("Enter new email: ");
-        String newEmail = scanner.nextLine().trim();
-        
-        if (!ValidationUtils.isValidEmail(newEmail)) {
-            System.out.println("Invalid email format.");
+    int choice = getIntInput();
+    switch (choice) {
+        case 1:
+            depositViaBank();
+            break;
+        case 2:
+            addTestFunds();
+            break;
+        case 3:
             return;
-        }
-        
-        try {
-            boolean updated = userService.updateUserProfile(currentUser.getUserId(), 
-                                                          newEmail, currentUser.getPhoneNumber());
-            if (updated) {
-                currentUser.setEmail(newEmail);
-                System.out.println("Email updated successfully.");
-            } else {
-                System.out.println("Failed to update email.");
-            }
-        } catch (SQLException e) {
-            System.err.println("Update failed: " + e.getMessage());
-        }
-    }
-    
-    private void updatePhoneNumber() {
-        System.out.print("Enter new phone number: ");
-        String newPhone = scanner.nextLine().trim();
-        
-        if (!newPhone.isEmpty() && !ValidationUtils.isValidPhoneNumber(newPhone)) {
-            System.out.println("Invalid phone number format.");
-            return;
-        }
-        
-        try {
-            boolean updated = userService.updateUserProfile(currentUser.getUserId(), 
-                                                          currentUser.getEmail(), 
-                                                          newPhone.isEmpty() ? null : newPhone);
-            if (updated) {
-                currentUser.setPhoneNumber(newPhone.isEmpty() ? null : newPhone);
-                System.out.println("Phone number updated successfully.");
-            } else {
-                System.out.println("Failed to update phone number.");
-            }
-        } catch (SQLException e) {
-            System.err.println("Update failed: " + e.getMessage());
-        }
-    }
-    
-    private void logout() {
-        currentUser = null;
-        System.out.println("Logged out successfully.");
-    }
-    
-    private void exitApplication() {
-        System.out.println(Constants.GOODBYE_MESSAGE);
-        System.exit(0);
-    }
-    
-    // Helper methods for input handling
-    private int getIntInput() {
-        try {
-            return Integer.parseInt(scanner.nextLine().trim());
-        } catch (NumberFormatException e) {
-            return -1;
-        }
-    }
-    
-    private Long getLongInput() {
-        try {
-            return Long.parseLong(scanner.nextLine().trim());
-        } catch (NumberFormatException e) {
-            return -1L;
-        }
-    }
-    
-    private BigDecimal getBigDecimalInput() {
-        try {
-            return new BigDecimal(scanner.nextLine().trim());
-        } catch (NumberFormatException e) {
-            return BigDecimal.valueOf(-1);
-        }
+        default:
+            System.out.println("Invalid option.");
     }
 }
+
+private void depositViaBank() {
+    System.out.println("\n--- Bank Transfer Deposit ---");
+    
+    try {
+        // Check if user has bank accounts
+        List<BankAccount> bankAccounts = bankAccountService.getUserBankAccounts(currentUser.getUserId());
+        
+        BankAccount selectedAccount;
+        
+        if (bankAccounts.isEmpty()) {
+            // Add new bank account
+            System.out.println("No bank accounts found. Let's add one:");
+            selectedAccount = addBankAccount();
+            if (selectedAccount == null) return;
+        } else {
+            // Show existing accounts
+            System.out.println("Your Bank Accounts:");
+            for (int i = 0; i < bankAccounts.size(); i++) {
+                BankAccount account = bankAccounts.get(i);
+                System.out.printf("%d. %s - %s%n", 
+                    i + 1, account.getBankName(), account.getMaskedAccountNumber());
+            }
+            System.out.println((bankAccounts.size() + 1) + ". Add New Account");
+            
+            System.out.print("Select option: ");
+            int choice = getIntInput();
+            
+            if (choice >= 1 && choice <= bankAccounts.size()) {
+                selectedAccount = bankAccounts.get(choice - 1);
+            } else if (choice == bankAccounts.size() + 1) {
+                selectedAccount = addBankAccount();
+                if (selectedAccount == null) return;
+            } else {
+                System.out.println("Invalid selection.");
+                return;
+            }
+        }
+        
+        // Get deposit amount
+        System.out.print("Enter deposit amount (USD): ");
+        BigDecimal amount = getBigDecimalInput();
+        
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            System.out.println("Invalid amount.");
+            return;
+        }
+        
+        // Process deposit
+        BigDecimal fee = amount.multiply(new BigDecimal("0.01")); // 1% fee
+        BigDecimal netAmount = amount.subtract(fee);
+        
+        System.out.printf("\nDeposit Summary:%n");
+        System.out.printf("Bank: %s%n", selectedAccount.getBankName());
+        System.out.printf("Account: %s%n", selectedAccount.getMaskedAccountNumber());
+        System.out.printf("Amount: $%s%n", FormattingUtils.formatPrice(amount));
+        System.out.printf("Fee: $%s%n", FormattingUtils.formatPrice(fee));
+        System.out.printf("You'll receive: %s USDT%n", FormattingUtils.formatPrice(netAmount));
+        
+        System.out.print("Confirm deposit? (y/n): ");
+        String confirm = scanner.nextLine().trim().toLowerCase();
+        
+        if ("y".equals(confirm) || "yes".equals(confirm)) {
+            // Add USDT to wallet
+            walletService.updateWalletBalance(currentUser.getUserId(), "USDT", netAmount, "ADD");
+            
+            // Create transaction record
+            Transaction transaction = new Transaction();
+            transaction.setUserId(currentUser.getUserId());
+            transaction.setTransactionType("BANK_DEPOSIT");
+            transaction.setToCurrency("USDT");
+            transaction.setAmount(netAmount);
+            transaction.setStatus("COMPLETED");
+            transaction.setTransactionHash(SecurityUtils.generateTransactionHash());
+            transaction.setBankAccountId(selectedAccount.getAccountId());
+            
+            transactionService.createTransaction(transaction);
+            
+            System.out.println("\nDeposit successful!");
+            System.out.printf("%s USDT added to your wallet.%n", FormattingUtils.formatPrice(netAmount));
+        } else {
+            System.out.println("Deposit cancelled.");
+        }
+        
+    } catch (SQLException e) {
+        System.err.println("Deposit failed: " + e.getMessage());
+    }
+}
+
+private BankAccount addBankAccount() {
+    System.out.println("\n--- Add Bank Account ---");
+    
+    System.out.print("Bank Name: ");
+    String bankName = scanner.nextLine().trim();
+    
+    System.out.print("Account Number: ");
+    String accountNumber = scanner.nextLine().trim();
+    
+    System.out.print("Account Holder Name: ");
+    String accountHolderName = scanner.nextLine().trim();
+    
+    if (bankName.isEmpty() || accountNumber.isEmpty() || accountHolderName.isEmpty()) {
+        System.out.println("All fields are required.");
+        return null;
+    }
+    
+    try {
+        BankAccount bankAccount = new BankAccount(currentUser.getUserId(), bankName, accountNumber, accountHolderName);
+        BankAccount savedAccount = bankAccountService.addBankAccount(bankAccount);
+        
+        System.out.println("Bank account added successfully!");
+        return savedAccount;
+        
+    } catch (SQLException e) {
+        System.err.println("Failed to add bank account: " + e.getMessage());
+        return null;
+    }
+}
+
+private void addTestFunds() {
+    System.out.println("\n--- Add Test Funds ---");
+    
+    System.out.print("Enter USDT amount: ");
+    BigDecimal amount = getBigDecimalInput();
+    
+    if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+        System.out.println("Invalid amount.");
+        return;
+    }
+    
+    try {
+        walletService.updateWalletBalance(currentUser.getUserId(), "USDT", amount, "ADD");
+        
+        // Create transaction record
+        Transaction transaction = new Transaction();
+        transaction.setUserId(currentUser.getUserId());
+        transaction.setTransactionType("TEST_FUNDS");
+        transaction.setToCurrency("USDT");
+        transaction.setAmount(amount);
+        transaction.setStatus("COMPLETED");
+        transaction.setTransactionHash(SecurityUtils.generateTransactionHash());
+        
+        transactionService.createTransaction(transaction);
+        
+        System.out.println("Test funds added successfully!");
+        System.out.printf("%s USDT added to your wallet.%n", FormattingUtils.formatPrice(amount));
+        
+    } catch (SQLException e) {
+        System.err.println("Failed to add test funds: " + e.getMessage());
+    }
+}
+
+// Simple method to view bank accounts
+private void viewBankAccounts() {
+    System.out.println("\n--- Your Bank Accounts ---");
+    
+    try {
+        List<BankAccount> bankAccounts = bankAccountService.getUserBankAccounts(currentUser.getUserId());
+        
+        if (bankAccounts.isEmpty()) {
+            System.out.println("No bank accounts found.");
+            return;
+        }
+        
+        for (BankAccount account : bankAccounts) {
+            System.out.printf("Bank: %s%n", account.getBankName());
+            System.out.printf("Account: %s%n", account.getMaskedAccountNumber());
+            System.out.printf("Holder: %s%n", account.getAccountHolderName());
+            System.out.println("---");
+        }
+        
+    } catch (SQLException e) {
+        System.err.println("Failed to load bank accounts: " + e.getMessage());
+    }
+}
+
+// Update your main menu to include deposit option
+// Add case 8 for depositFunds() in your main menu switch statement
