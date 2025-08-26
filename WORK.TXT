@@ -1,3 +1,122 @@
+
+
+-- Simple Bank Account Table
+CREATE TABLE bank_accounts (
+    account_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    bank_name VARCHAR(100) NOT NULL,
+    account_number VARCHAR(20) NOT NULL,
+    account_holder_name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    UNIQUE KEY unique_user_account (user_id, account_number)
+);
+
+-- Update transactions table to link with bank accounts
+ALTER TABLE transactions 
+ADD COLUMN bank_account_id BIGINT NULL,
+ADD FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(account_id);
+
+-- Simple Java Model
+/*
+package com.cryptotrading.model;
+
+public class BankAccount {
+    private Long accountId;
+    private Long userId;
+    private String bankName;
+    private String accountNumber;
+    private String accountHolderName;
+    
+    // Constructor
+    public BankAccount(Long userId, String bankName, String accountNumber, String accountHolderName) {
+        this.userId = userId;
+        this.bankName = bankName;
+        this.accountNumber = accountNumber;
+        this.accountHolderName = accountHolderName;
+    }
+    
+    // Getters and Setters
+    public Long getAccountId() { return accountId; }
+    public void setAccountId(Long accountId) { this.accountId = accountId; }
+    
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    
+    public String getBankName() { return bankName; }
+    public void setBankName(String bankName) { this.bankName = bankName; }
+    
+    public String getAccountNumber() { return accountNumber; }
+    public void setAccountNumber(String accountNumber) { this.accountNumber = accountNumber; }
+    
+    public String getAccountHolderName() { return accountHolderName; }
+    public void setAccountHolderName(String accountHolderName) { this.accountHolderName = accountHolderName; }
+    
+    // Helper method
+    public String getMaskedAccountNumber() {
+        return "****" + accountNumber.substring(accountNumber.length() - 4);
+    }
+}
+*/
+
+-- Simple Service Class
+/*
+package com.cryptotrading.service;
+
+import com.cryptotrading.model.BankAccount;
+import com.cryptotrading.utils.DatabaseConnection;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class BankAccountService {
+    
+    public BankAccount addBankAccount(BankAccount bankAccount) throws SQLException {
+        Connection connection = DatabaseConnection.getConnection();
+        
+        String sql = "INSERT INTO bank_accounts (user_id, bank_name, account_number, account_holder_name) VALUES (?, ?, ?, ?)";
+        PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+        
+        statement.setLong(1, bankAccount.getUserId());
+        statement.setString(2, bankAccount.getBankName());
+        statement.setString(3, bankAccount.getAccountNumber());
+        statement.setString(4, bankAccount.getAccountHolderName());
+        
+        statement.executeUpdate();
+        
+        ResultSet keys = statement.getGeneratedKeys();
+        if (keys.next()) {
+            bankAccount.setAccountId(keys.getLong(1));
+        }
+        
+        return bankAccount;
+    }
+    
+    public List<BankAccount> getUserBankAccounts(Long userId) throws SQLException {
+        Connection connection = DatabaseConnection.getConnection();
+        List<BankAccount> accounts = new ArrayList<>();
+        
+        String sql = "SELECT * FROM bank_accounts WHERE user_id = ?";
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setLong(1, userId);
+        
+        ResultSet rs = statement.executeQuery();
+        while (rs.next()) {
+            BankAccount account = new BankAccount(
+                rs.getLong("user_id"),
+                rs.getString("bank_name"),
+                rs.getString("account_number"),
+                rs.getString("account_holder_name")
+            );
+            account.setAccountId(rs.getLong("account_id"));
+            accounts.add(account);
+        }
+        
+        return accounts;
+    }
+}
+*/
 // Simple deposit methods for CryptoTradingCLI.java
 
 private void depositFunds() {
