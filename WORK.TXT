@@ -1,0 +1,302 @@
+// Utils Classes for Crypto Trading Platform
+
+// DatabaseConnection.java
+package com.cryptotrading.utils;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Properties;
+
+public class DatabaseConnection {
+    private static final String URL = "jdbc:oracle:thin:@localhost:1521:XE";
+    private static final String USERNAME = "crypto_user";
+    private static final String PASSWORD = "crypto_pass";
+    
+    private static Connection connection = null;
+    
+    public static Connection getConnection() throws SQLException {
+        if (connection == null || connection.isClosed()) {
+            try {
+                Class.forName("oracle.jdbc.driver.OracleDriver");
+                Properties props = new Properties();
+                props.setProperty("user", USERNAME);
+                props.setProperty("password", PASSWORD);
+                props.setProperty("oracle.jdbc.timezoneAsRegion", "false");
+                
+                connection = DriverManager.getConnection(URL, props);
+                connection.setAutoCommit(false);
+                
+                System.out.println("Database connection established successfully!");
+            } catch (ClassNotFoundException e) {
+                System.err.println("Oracle JDBC Driver not found: " + e.getMessage());
+                throw new SQLException("Driver not found", e);
+            } catch (SQLException e) {
+                System.err.println("Database connection failed: " + e.getMessage());
+                throw e;
+            }
+        }
+        return connection;
+    }
+    
+    public static void closeConnection() {
+        if (connection != null) {
+            try {
+                connection.close();
+                System.out.println("Database connection closed.");
+            } catch (SQLException e) {
+                System.err.println("Error closing connection: " + e.getMessage());
+            }
+        }
+    }
+    
+    public static void commit() throws SQLException {
+        if (connection != null && !connection.isClosed()) {
+            connection.commit();
+        }
+    }
+    
+    public static void rollback() throws SQLException {
+        if (connection != null && !connection.isClosed()) {
+            connection.rollback();
+        }
+    }
+}
+
+// CryptographyUtils.java
+package com.cryptotrading.utils;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+public class CryptographyUtils {
+    private static final String ALGORITHM = "AES";
+    private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
+    private static final SecureRandom secureRandom = new SecureRandom();
+    
+    // Generate SHA-256 hash
+    public static String generateHash(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes());
+            return bytesToHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not available", e);
+        }
+    }
+    
+    // Generate secure PIN hash with salt
+    public static String hashPin(String pin) {
+        String salt = generateSalt();
+        String hashedPin = generateHash(pin + salt);
+        return salt + ":" + hashedPin;
+    }
+    
+    // Verify PIN against stored hash
+    public static boolean verifyPin(String pin, String storedHash) {
+        String[] parts = storedHash.split(":");
+        if (parts.length != 2) return false;
+        
+        String salt = parts[0];
+        String hash = parts[1];
+        
+        return generateHash(pin + salt).equals(hash);
+    }
+    
+    // Generate random salt
+    private static String generateSalt() {
+        byte[] salt = new byte[16];
+        secureRandom.nextBytes(salt);
+        return Base64.getEncoder().encodeToString(salt);
+    }
+    
+    // Generate wallet address
+    public static String generateWalletAddress(String username, String email) {
+        String combined = username + email + System.currentTimeMillis();
+        return "0x" + generateHash(combined).substring(0, 40).toLowerCase();
+    }
+    
+    // Generate transaction hash
+    public static String generateTransactionHash(String data) {
+        return generateHash(data + System.nanoTime());
+    }
+    
+    // Generate block hash
+    public static String generateBlockHash(String previousHash, String data, long nonce) {
+        String combined = previousHash + data + nonce;
+        return generateHash(combined);
+    }
+    
+    // Convert bytes to hex string
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder result = new StringBuilder();
+        for (byte b : bytes) {
+            result.append(String.format("%02x", b));
+        }
+        return result.toString();
+    }
+}
+
+// ValidationUtils.java
+package com.cryptotrading.utils;
+
+import java.math.BigDecimal;
+import java.util.regex.Pattern;
+
+public class ValidationUtils {
+    private static final Pattern EMAIL_PATTERN = 
+        Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
+    
+    private static final Pattern PHONE_PATTERN = 
+        Pattern.compile("^\\+?[1-9]\\d{1,14}$");
+    
+    private static final Pattern USERNAME_PATTERN = 
+        Pattern.compile("^[a-zA-Z0-9_]{3,20}$");
+    
+    public static boolean isValidEmail(String email) {
+        return email != null && EMAIL_PATTERN.matcher(email).matches();
+    }
+    
+    public static boolean isValidPhoneNumber(String phone) {
+        return phone != null && PHONE_PATTERN.matcher(phone).matches();
+    }
+    
+    public static boolean isValidUsername(String username) {
+        return username != null && USERNAME_PATTERN.matcher(username).matches();
+    }
+    
+    public static boolean isValidPin(String pin) {
+        return pin != null && pin.matches("^\\d{4,8}$");
+    }
+    
+    public static boolean isValidAmount(BigDecimal amount) {
+        return amount != null && amount.compareTo(BigDecimal.ZERO) > 0;
+    }
+    
+    public static boolean isValidCurrencyCode(String currencyCode) {
+        return currencyCode != null && currencyCode.matches("^[A-Z]{2,10}$");
+    }
+    
+    public static boolean isValidTransactionType(String type) {
+        return type != null && 
+               (type.equals("BUY") || type.equals("SELL") || 
+                type.equals("TRANSFER") || type.equals("DEPOSIT") || 
+                type.equals("WITHDRAW"));
+    }
+}
+
+// FormattingUtils.java
+package com.cryptotrading.utils;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+public class FormattingUtils {
+    private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,##0.00000000");
+    private static final DecimalFormat PRICE_FORMAT = new DecimalFormat("#,##0.00");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    
+    public static String formatCurrency(BigDecimal amount) {
+        if (amount == null) return "0.00000000";
+        return CURRENCY_FORMAT.format(amount);
+    }
+    
+    public static String formatPrice(BigDecimal price) {
+        if (price == null) return "0.00";
+        return PRICE_FORMAT.format(price);
+    }
+    
+    public static String formatDateTime(LocalDateTime dateTime) {
+        if (dateTime == null) return "";
+        return dateTime.format(DATE_FORMAT);
+    }
+    
+    public static BigDecimal roundToEightDecimals(BigDecimal value) {
+        if (value == null) return BigDecimal.ZERO;
+        return value.setScale(8, RoundingMode.HALF_UP);
+    }
+    
+    public static String truncateString(String str, int length) {
+        if (str == null || str.length() <= length) return str;
+        return str.substring(0, length) + "...";
+    }
+    
+    public static String formatWalletAddress(String address) {
+        if (address == null || address.length() < 10) return address;
+        return address.substring(0, 6) + "..." + 
+               address.substring(address.length() - 4);
+    }
+    
+    public static String formatTransactionHash(String hash) {
+        if (hash == null || hash.length() < 16) return hash;
+        return hash.substring(0, 8) + "..." + 
+               hash.substring(hash.length() - 8);
+    }
+}
+
+// Constants.java
+package com.cryptotrading.utils;
+
+import java.math.BigDecimal;
+
+public class Constants {
+    // Transaction Types
+    public static final String TX_BUY = "BUY";
+    public static final String TX_SELL = "SELL";
+    public static final String TX_TRANSFER = "TRANSFER";
+    public static final String TX_DEPOSIT = "DEPOSIT";
+    public static final String TX_WITHDRAW = "WITHDRAW";
+    
+    // Transaction Status
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_COMPLETED = "COMPLETED";
+    public static final String STATUS_CANCELLED = "CANCELLED";
+    public static final String STATUS_FAILED = "FAILED";
+    
+    // User Status
+    public static final String KYC_PENDING = "PENDING";
+    public static final String KYC_APPROVED = "APPROVED";
+    public static final String KYC_REJECTED = "REJECTED";
+    
+    // Wallet Status
+    public static final String WALLET_ACTIVE = "ACTIVE";
+    public static final String WALLET_INACTIVE = "INACTIVE";
+    public static final String WALLET_FROZEN = "FROZEN";
+    
+    // Trading Fees (0.1%)
+    public static final BigDecimal TRADING_FEE_PERCENTAGE = new BigDecimal("0.001");
+    
+    // Minimum Trade Amount
+    public static final BigDecimal MIN_TRADE_AMOUNT = new BigDecimal("0.00000001");
+    
+    // Maximum digits for currency amounts
+    public static final int CURRENCY_SCALE = 8;
+    
+    // Default fiat currency for price display
+    public static final String DEFAULT_FIAT = "USD";
+    
+    // System messages
+    public static final String WELCOME_MESSAGE = "Welcome to Crypto Trading Platform!";
+    public static final String GOODBYE_MESSAGE = "Thank you for using Crypto Trading Platform!";
+    
+    // Menu options
+    public static final String[] MAIN_MENU_OPTIONS = {
+        "1. View Portfolio",
+        "2. Buy Cryptocurrency", 
+        "3. Sell Cryptocurrency",
+        "4. Transfer Funds",
+        "5. Transaction History",
+        "6. Market Prices",
+        "7. Account Settings",
+        "8. Logout"
+    };
+}
