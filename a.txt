@@ -1,1482 +1,2060 @@
-I'll help you create a cryptocurrency trading platform CLI application in Java with Oracle database integration. Based on your ER diagram, I can see the main entities: Currencies, Users, Wallets, Transactions, SmartContracts, and BlockchainData.
+# Crypto Trading Platform - Spring Boot Backend
 
-Let me create a complete structure for you:
+## Project Structure
+```
+src/main/java/com/crypto/trading/
+├── CryptoTradingApplication.java
+├── config/
+│   ├── DatabaseConfig.java
+│   └── SwaggerConfig.java
+├── entity/
+│   ├── Currency.java
+│   ├── User.java
+│   ├── Wallet.java
+│   ├── Transaction.java
+│   ├── SmartContract.java
+│   └── BlockchainData.java
+├── repository/
+│   ├── CurrencyRepository.java
+│   ├── UserRepository.java
+│   ├── WalletRepository.java
+│   ├── TransactionRepository.java
+│   ├── SmartContractRepository.java
+│   └── BlockchainDataRepository.java
+├── service/
+│   ├── CurrencyService.java
+│   ├── UserService.java
+│   ├── WalletService.java
+│   ├── TransactionService.java
+│   ├── SmartContractService.java
+│   └── BlockchainDataService.java
+├── controller/
+│   ├── CurrencyController.java
+│   ├── UserController.java
+│   ├── WalletController.java
+│   ├── TransactionController.java
+│   ├── SmartContractController.java
+│   └── BlockchainDataController.java
+└── dto/
+    ├── UserDto.java
+    ├── TransactionDto.java
+    └── WalletDto.java
+```
 
--- Database Schema for Crypto Trading Platform
--- Create tables based on ER diagram
+## 1. Main Application Class
 
--- Currencies table (predefined crypto currencies)
-CREATE TABLE DC_Currencies (
-    currency_code VARCHAR2(10) PRIMARY KEY,
-    currency_name VARCHAR2(50) NOT NULL,
-    symbol VARCHAR2(10) NOT NULL,
-    blockchain_network VARCHAR2(50),
-    current_price NUMBER(18,8) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+```java
+package com.crypto.trading;
 
--- Users table
-CREATE TABLE DC_Users (
-    user_id NUMBER PRIMARY KEY,
-    username VARCHAR2(50) UNIQUE NOT NULL,
-    encrypted_pin VARCHAR2(255) NOT NULL,
-    email VARCHAR2(100) UNIQUE NOT NULL,
-    phone_number VARCHAR2(20),
-    kyc_status VARCHAR2(20) DEFAULT 'PENDING',
-    wallet_address VARCHAR2(100) UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
--- Wallets table
-CREATE TABLE DC_Wallets (
-    wallet_id NUMBER PRIMARY KEY,
-    user_id NUMBER NOT NULL,
-    currency_code VARCHAR2(10) NOT NULL,
-    balance NUMBER(18,8) DEFAULT 0,
-    status VARCHAR2(20) DEFAULT 'ACTIVE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES DC_Users(user_id),
-    FOREIGN KEY (currency_code) REFERENCES DC_Currencies(currency_code)
-);
+@SpringBootApplication
+public class CryptoTradingApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(CryptoTradingApplication.class, args);
+    }
+}
+```
 
--- Transactions table
-CREATE TABLE DC_Transactions (
-    transaction_id NUMBER PRIMARY KEY,
-    user_id NUMBER NOT NULL,
-    transaction_type VARCHAR2(20) NOT NULL, -- BUY, SELL, TRANSFER, DEPOSIT, WITHDRAW
-    from_currency VARCHAR2(10),
-    to_currency VARCHAR2(10),
-    amount NUMBER(18,8) NOT NULL,
-    price_per_unit NUMBER(18,8),
-    total_value NUMBER(18,8),
-    transaction_fee NUMBER(18,8) DEFAULT 0,
-    status VARCHAR2(20) DEFAULT 'PENDING',
-    transaction_hash VARCHAR2(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES DC_Users(user_id),
-    FOREIGN KEY (from_currency) REFERENCES DC_Currencies(currency_code),
-    FOREIGN KEY (to_currency) REFERENCES DC_Currencies(currency_code)
-);
+## 2. Configuration Classes
 
--- Smart Contracts table
-CREATE TABLE DC_SmartContracts (
-    contract_id NUMBER PRIMARY KEY,
-    owner_id NUMBER NOT NULL,
-    contract_name VARCHAR2(100) NOT NULL,
-    contract_code CLOB,
-    status VARCHAR2(20) DEFAULT 'ACTIVE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (owner_id) REFERENCES DC_Users(user_id)
-);
+### Database Configuration
+```java
+package com.crypto.trading.config;
 
--- Blockchain Data table
-CREATE TABLE DC_BlockchainData (
-    block_id NUMBER PRIMARY KEY,
-    block_hash VARCHAR2(100) NOT NULL,
-    previous_hash VARCHAR2(100),
-    merkle_root VARCHAR2(100),
-    timestamp_data TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    difficulty_level NUMBER DEFAULT 1,
-    nonce NUMBER DEFAULT 0
-);
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
--- Sequences for auto-increment
-CREATE SEQUENCE user_seq START WITH 1000 INCREMENT BY 1;
-CREATE SEQUENCE wallet_seq START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE transaction_seq START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE contract_seq START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE block_seq START WITH 1 INCREMENT BY 1;
+import javax.sql.DataSource;
 
--- Insert predefined cryptocurrencies
-INSERT INTO DC_Currencies (currency_code, currency_name, symbol, blockchain_network, current_price) VALUES
-('BTC', 'Bitcoin', '₿', 'Bitcoin', 45000.00),
-('ETH', 'Ethereum', 'Ξ', 'Ethereum', 3200.00),
-('ADA', 'Cardano', '₳', 'Cardano', 0.45),
-('DOT', 'Polkadot', 'DOT', 'Polkadot', 6.50),
-('SOL', 'Solana', 'SOL', 'Solana', 95.00),
-('MATIC', 'Polygon', 'MATIC', 'Polygon', 0.85),
-('AVAX', 'Avalanche', 'AVAX', 'Avalanche', 22.00),
-('LINK', 'Chainlink', 'LINK', 'Ethereum', 14.50),
-('UNI', 'Uniswap', 'UNI', 'Ethereum', 6.20),
-('USDT', 'Tether', 'USDT', 'Multi-chain', 1.00);
+@Configuration
+@EnableJpaRepositories(basePackages = "com.crypto.trading.repository")
+@EntityScan(basePackages = "com.crypto.trading.entity")
+@EnableTransactionManagement
+public class DatabaseConfig {
 
--- Create indexes for better performance
-CREATE INDEX idx_wallets_user_currency ON DC_Wallets(user_id, currency_code);
-CREATE INDEX idx_transactions_user ON DC_Transactions(user_id);
-CREATE INDEX idx_transactions_status ON DC_Transactions(status);
-CREATE INDEX idx_users_username ON DC_Users(username);
-CREATE INDEX idx_users_email ON DC_Users(email);
+    @Autowired
+    private DataSource dataSource;
 
-COMMIT;
+    @Bean
+    public JdbcTemplate jdbcTemplate() {
+        return new JdbcTemplate(dataSource);
+    }
+}
+```
 
-Now, let me create the Model classes:
+### Swagger Configuration
+```java
+package com.crypto.trading.config;
 
-// Model Classes for Crypto Trading Platform
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.info.Contact;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-// Currency.java
-package com.cryptotrading.model;
+@Configuration
+public class SwaggerConfig {
+
+    @Bean
+    public OpenAPI cryptoTradingAPI() {
+        return new OpenAPI()
+                .info(new Info()
+                        .title("Crypto Trading Platform API")
+                        .description("REST API for Crypto Trading Platform")
+                        .version("1.0")
+                        .contact(new Contact()
+                                .name("Crypto Trading Team")
+                                .email("support@cryptotrading.com")));
+    }
+}
+```
+
+## 3. Entity Classes
+
+### Currency Entity
+```java
+package com.crypto.trading.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@Entity
+@Table(name = "DC_Currencies")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Currency {
-    private String currencyCode;
-    private String currencyName;
-    private String symbol;
-    private String blockchainNetwork;
-    private BigDecimal currentPrice;
-    private LocalDateTime createdAt;
-    
-    // Constructors
-    public Currency() {}
-    
-    public Currency(String currencyCode, String currencyName, String symbol, 
-                   String blockchainNetwork, BigDecimal currentPrice) {
-        this.currencyCode = currencyCode;
-        this.currencyName = currencyName;
-        this.symbol = symbol;
-        this.blockchainNetwork = blockchainNetwork;
-        this.currentPrice = currentPrice;
-        this.createdAt = LocalDateTime.now();
-    }
-    
-    // Getters and Setters
-    public String getCurrencyCode() { return currencyCode; }
-    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
-    
-    public String getCurrencyName() { return currencyName; }
-    public void setCurrencyName(String currencyName) { this.currencyName = currencyName; }
-    
-    public String getSymbol() { return symbol; }
-    public void setSymbol(String symbol) { this.symbol = symbol; }
-    
-    public String getBlockchainNetwork() { return blockchainNetwork; }
-    public void setBlockchainNetwork(String blockchainNetwork) { this.blockchainNetwork = blockchainNetwork; }
-    
-    public BigDecimal getCurrentPrice() { return currentPrice; }
-    public void setCurrentPrice(BigDecimal currentPrice) { this.currentPrice = currentPrice; }
-    
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-}
 
-// User.java
-package com.cryptotrading.model;
+    @Id
+    @Column(name = "currency_code", length = 10)
+    private String currencyCode;
+
+    @NotNull
+    @Column(name = "currency_name", length = 50, nullable = false)
+    private String currencyName;
+
+    @NotNull
+    @Column(name = "symbol", length = 10, nullable = false)
+    private String symbol;
+
+    @Column(name = "blockchain_network", length = 50)
+    private String blockchainNetwork;
+
+    @Column(name = "current_price", precision = 18, scale = 8)
+    private BigDecimal currentPrice = BigDecimal.ZERO;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+}
+```
+
+### User Entity
+```java
+package com.crypto.trading.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Entity
+@Table(name = "DC_Users")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
+    @SequenceGenerator(name = "user_seq", sequenceName = "user_seq", allocationSize = 1)
+    @Column(name = "user_id")
+    private Long userId;
+
+    @NotNull
+    @Column(name = "username", length = 50, nullable = false, unique = true)
+    private String username;
+
+    @NotNull
+    @Column(name = "encrypted_pin", length = 255, nullable = false)
+    private String encryptedPin;
+
+    @Email
+    @NotNull
+    @Column(name = "email", length = 100, nullable = false, unique = true)
+    private String email;
+
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
+    @Column(name = "kyc_status", length = 20)
+    private String kycStatus = "PENDING";
+
+    @Column(name = "wallet_address", length = 100, unique = true)
+    private String walletAddress;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Wallet> wallets;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Transaction> transactions;
+}
+```
+
+### Wallet Entity
+```java
+package com.crypto.trading.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "DC_Wallets")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Wallet {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "wallet_seq")
+    @SequenceGenerator(name = "wallet_seq", sequenceName = "wallet_seq", allocationSize = 1)
+    @Column(name = "wallet_id")
+    private Long walletId;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "currency_code", nullable = false)
+    private Currency currency;
+
+    @Column(name = "balance", precision = 18, scale = 8)
+    private BigDecimal balance = BigDecimal.ZERO;
+
+    @Column(name = "status", length = 20)
+    private String status = "ACTIVE";
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+}
+```
+
+### Transaction Entity
+```java
+package com.crypto.trading.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "DC_Transactions")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Transaction {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "transaction_seq")
+    @SequenceGenerator(name = "transaction_seq", sequenceName = "transaction_seq", allocationSize = 1)
+    @Column(name = "transaction_id")
+    private Long transactionId;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @NotNull
+    @Column(name = "transaction_type", length = 20, nullable = false)
+    private String transactionType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "from_currency")
+    private Currency fromCurrency;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "to_currency")
+    private Currency toCurrency;
+
+    @NotNull
+    @Column(name = "amount", precision = 18, scale = 8, nullable = false)
+    private BigDecimal amount;
+
+    @Column(name = "price_per_unit", precision = 18, scale = 8)
+    private BigDecimal pricePerUnit;
+
+    @Column(name = "total_value", precision = 18, scale = 8)
+    private BigDecimal totalValue;
+
+    @Column(name = "transaction_fee", precision = 18, scale = 8)
+    private BigDecimal transactionFee = BigDecimal.ZERO;
+
+    @Column(name = "status", length = 20)
+    private String status = "PENDING";
+
+    @Column(name = "transaction_hash", length = 100)
+    private String transactionHash;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+}
+```
+
+### SmartContract Entity
+```java
+package com.crypto.trading.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
-public class User {
+@Entity
+@Table(name = "DC_SmartContracts")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class SmartContract {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "contract_seq")
+    @SequenceGenerator(name = "contract_seq", sequenceName = "contract_seq", allocationSize = 1)
+    @Column(name = "contract_id")
+    private Long contractId;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false)
+    private User owner;
+
+    @NotNull
+    @Column(name = "contract_name", length = 100, nullable = false)
+    private String contractName;
+
+    @Lob
+    @Column(name = "contract_code")
+    private String contractCode;
+
+    @Column(name = "status", length = 20)
+    private String status = "ACTIVE";
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+}
+```
+
+### BlockchainData Entity
+```java
+package com.crypto.trading.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "DC_BlockchainData")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class BlockchainData {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "block_seq")
+    @SequenceGenerator(name = "block_seq", sequenceName = "block_seq", allocationSize = 1)
+    @Column(name = "block_id")
+    private Long blockId;
+
+    @NotNull
+    @Column(name = "block_hash", length = 100, nullable = false)
+    private String blockHash;
+
+    @Column(name = "previous_hash", length = 100)
+    private String previousHash;
+
+    @Column(name = "merkle_root", length = 100)
+    private String merkleRoot;
+
+    @CreationTimestamp
+    @Column(name = "timestamp_data", updatable = false)
+    private LocalDateTime timestampData;
+
+    @Column(name = "difficulty_level")
+    private Integer difficultyLevel = 1;
+
+    @Column(name = "nonce")
+    private Long nonce = 0L;
+}
+```
+
+## 4. Repository Interfaces
+
+### CurrencyRepository
+```java
+package com.crypto.trading.repository;
+
+import com.crypto.trading.entity.Currency;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface CurrencyRepository extends JpaRepository<Currency, String> {
+    
+    Optional<Currency> findBySymbol(String symbol);
+    
+    List<Currency> findByBlockchainNetwork(String blockchainNetwork);
+    
+    @Query("SELECT c FROM Currency c WHERE c.currentPrice > :minPrice")
+    List<Currency> findCurrenciesAbovePrice(Double minPrice);
+    
+    @Query("SELECT c FROM Currency c ORDER BY c.currentPrice DESC")
+    List<Currency> findAllOrderByPriceDesc();
+}
+```
+
+### UserRepository
+```java
+package com.crypto.trading.repository;
+
+import com.crypto.trading.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, Long> {
+    
+    Optional<User> findByUsername(String username);
+    
+    Optional<User> findByEmail(String email);
+    
+    Optional<User> findByWalletAddress(String walletAddress);
+    
+    List<User> findByKycStatus(String kycStatus);
+    
+    @Query("SELECT u FROM User u WHERE u.phoneNumber = :phoneNumber")
+    Optional<User> findByPhoneNumber(@Param("phoneNumber") String phoneNumber);
+    
+    @Query("SELECT COUNT(u) FROM User u WHERE u.kycStatus = 'APPROVED'")
+    Long countApprovedUsers();
+}
+```
+
+### WalletRepository
+```java
+package com.crypto.trading.repository;
+
+import com.crypto.trading.entity.Wallet;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface WalletRepository extends JpaRepository<Wallet, Long> {
+    
+    List<Wallet> findByUserId(Long userId);
+    
+    Optional<Wallet> findByUserIdAndCurrencyCurrencyCode(Long userId, String currencyCode);
+    
+    List<Wallet> findByCurrencyCurrencyCode(String currencyCode);
+    
+    List<Wallet> findByStatus(String status);
+    
+    @Query("SELECT w FROM Wallet w WHERE w.balance > :minBalance")
+    List<Wallet> findWalletsWithMinBalance(@Param("minBalance") BigDecimal minBalance);
+    
+    @Query("SELECT SUM(w.balance) FROM Wallet w WHERE w.currency.currencyCode = :currencyCode")
+    BigDecimal getTotalBalanceByCurrency(@Param("currencyCode") String currencyCode);
+}
+```
+
+### TransactionRepository
+```java
+package com.crypto.trading.repository;
+
+import com.crypto.trading.entity.Transaction;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+    
+    List<Transaction> findByUserId(Long userId);
+    
+    List<Transaction> findByTransactionType(String transactionType);
+    
+    List<Transaction> findByStatus(String status);
+    
+    Optional<Transaction> findByTransactionHash(String transactionHash);
+    
+    @Query("SELECT t FROM Transaction t WHERE t.user.userId = :userId AND t.transactionType = :type")
+    List<Transaction> findByUserIdAndTransactionType(@Param("userId") Long userId, @Param("type") String transactionType);
+    
+    @Query("SELECT t FROM Transaction t WHERE t.createdAt BETWEEN :startDate AND :endDate")
+    List<Transaction> findTransactionsBetweenDates(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    
+    @Query("SELECT SUM(t.totalValue) FROM Transaction t WHERE t.status = 'COMPLETED' AND t.transactionType = 'BUY'")
+    Double getTotalBuyVolume();
+}
+```
+
+### SmartContractRepository
+```java
+package com.crypto.trading.repository;
+
+import com.crypto.trading.entity.SmartContract;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface SmartContractRepository extends JpaRepository<SmartContract, Long> {
+    
+    List<SmartContract> findByOwnerId(Long ownerId);
+    
+    List<SmartContract> findByStatus(String status);
+    
+    List<SmartContract> findByContractNameContaining(String contractName);
+    
+    @Query("SELECT sc FROM SmartContract sc WHERE sc.owner.userId = :ownerId AND sc.status = :status")
+    List<SmartContract> findByOwnerIdAndStatus(@Param("ownerId") Long ownerId, @Param("status") String status);
+}
+```
+
+### BlockchainDataRepository
+```java
+package com.crypto.trading.repository;
+
+import com.crypto.trading.entity.BlockchainData;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface BlockchainDataRepository extends JpaRepository<BlockchainData, Long> {
+    
+    Optional<BlockchainData> findByBlockHash(String blockHash);
+    
+    Optional<BlockchainData> findByPreviousHash(String previousHash);
+    
+    @Query("SELECT bd FROM BlockchainData bd WHERE bd.timestampData BETWEEN :startDate AND :endDate")
+    List<BlockchainData> findBlocksBetweenDates(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    
+    @Query("SELECT bd FROM BlockchainData bd ORDER BY bd.timestampData DESC")
+    List<BlockchainData> findAllOrderByTimestampDesc();
+    
+    @Query("SELECT bd FROM BlockchainData bd WHERE bd.difficultyLevel >= :minDifficulty")
+    List<BlockchainData> findBlocksWithMinDifficulty(@Param("minDifficulty") Integer minDifficulty);
+}
+```
+
+## 5. DTO Classes
+
+### UserDto
+```java
+package com.crypto.trading.dto;
+
+import lombok.Data;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+@Data
+public class UserDto {
     private Long userId;
+    
+    @NotBlank(message = "Username is required")
     private String username;
-    private String encryptedPin;
+    
+    @NotBlank(message = "PIN is required")
+    private String pin;
+    
+    @Email(message = "Invalid email format")
+    @NotBlank(message = "Email is required")
     private String email;
+    
     private String phoneNumber;
     private String kycStatus;
     private String walletAddress;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    
-    // Constructors
-    public User() {}
-    
-    public User(String username, String encryptedPin, String email, String phoneNumber) {
-        this.username = username;
-        this.encryptedPin = encryptedPin;
-        this.email = email;
-        this.phoneNumber = phoneNumber;
-        this.kycStatus = "PENDING";
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-    
-    // Getters and Setters
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
-    
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
-    
-    public String getEncryptedPin() { return encryptedPin; }
-    public void setEncryptedPin(String encryptedPin) { this.encryptedPin = encryptedPin; }
-    
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-    
-    public String getPhoneNumber() { return phoneNumber; }
-    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
-    
-    public String getKycStatus() { return kycStatus; }
-    public void setKycStatus(String kycStatus) { this.kycStatus = kycStatus; }
-    
-    public String getWalletAddress() { return walletAddress; }
-    public void setWalletAddress(String walletAddress) { this.walletAddress = walletAddress; }
-    
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+```
 
-// Wallet.java
-package com.cryptotrading.model;
+### TransactionDto
+```java
+package com.crypto.trading.dto;
+
+import lombok.Data;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
-public class Wallet {
-    private Long walletId;
-    private Long userId;
-    private String currencyCode;
-    private BigDecimal balance;
-    private String status;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    
-    // Constructors
-    public Wallet() {}
-    
-    public Wallet(Long userId, String currencyCode) {
-        this.userId = userId;
-        this.currencyCode = currencyCode;
-        this.balance = BigDecimal.ZERO;
-        this.status = "ACTIVE";
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-    
-    // Getters and Setters
-    public Long getWalletId() { return walletId; }
-    public void setWalletId(Long walletId) { this.walletId = walletId; }
-    
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
-    
-    public String getCurrencyCode() { return currencyCode; }
-    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
-    
-    public BigDecimal getBalance() { return balance; }
-    public void setBalance(BigDecimal balance) { this.balance = balance; }
-    
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
-}
-
-// Transaction.java
-package com.cryptotrading.model;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
-public class Transaction {
+@Data
+public class TransactionDto {
     private Long transactionId;
+    
+    @NotNull(message = "User ID is required")
     private Long userId;
+    
+    @NotNull(message = "Transaction type is required")
     private String transactionType;
+    
     private String fromCurrency;
     private String toCurrency;
+    
+    @NotNull(message = "Amount is required")
+    @Positive(message = "Amount must be positive")
     private BigDecimal amount;
+    
     private BigDecimal pricePerUnit;
     private BigDecimal totalValue;
     private BigDecimal transactionFee;
     private String status;
     private String transactionHash;
-    private LocalDateTime createdAt;
-    private LocalDateTime completedAt;
-    
-    // Constructors
-    public Transaction() {}
-    
-    public Transaction(Long userId, String transactionType, String fromCurrency, 
-                      String toCurrency, BigDecimal amount, BigDecimal pricePerUnit) {
-        this.userId = userId;
-        this.transactionType = transactionType;
-        this.fromCurrency = fromCurrency;
-        this.toCurrency = toCurrency;
-        this.amount = amount;
-        this.pricePerUnit = pricePerUnit;
-        this.totalValue = amount.multiply(pricePerUnit);
-        this.transactionFee = BigDecimal.ZERO;
-        this.status = "PENDING";
-        this.createdAt = LocalDateTime.now();
-    }
-    
-    // Getters and Setters
-    public Long getTransactionId() { return transactionId; }
-    public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
-    
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
-    
-    public String getTransactionType() { return transactionType; }
-    public void setTransactionType(String transactionType) { this.transactionType = transactionType; }
-    
-    public String getFromCurrency() { return fromCurrency; }
-    public void setFromCurrency(String fromCurrency) { this.fromCurrency = fromCurrency; }
-    
-    public String getToCurrency() { return toCurrency; }
-    public void setToCurrency(String toCurrency) { this.toCurrency = toCurrency; }
-    
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
-    
-    public BigDecimal getPricePerUnit() { return pricePerUnit; }
-    public void setPricePerUnit(BigDecimal pricePerUnit) { this.pricePerUnit = pricePerUnit; }
-    
-    public BigDecimal getTotalValue() { return totalValue; }
-    public void setTotalValue(BigDecimal totalValue) { this.totalValue = totalValue; }
-    
-    public BigDecimal getTransactionFee() { return transactionFee; }
-    public void setTransactionFee(BigDecimal transactionFee) { this.transactionFee = transactionFee; }
-    
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    
-    public String getTransactionHash() { return transactionHash; }
-    public void setTransactionHash(String transactionHash) { this.transactionHash = transactionHash; }
-    
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    
-    public LocalDateTime getCompletedAt() { return completedAt; }
-    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
 }
+```
 
-// SmartContract.java
-package com.cryptotrading.model;
+### WalletDto
+```java
+package com.crypto.trading.dto;
 
-import java.time.LocalDateTime;
+import lombok.Data;
+import jakarta.validation.constraints.NotNull;
 
-public class SmartContract {
-    private Long contractId;
-    private Long ownerId;
-    private String contractName;
-    private String contractCode;
+import java.math.BigDecimal;
+
+@Data
+public class WalletDto {
+    private Long walletId;
+    
+    @NotNull(message = "User ID is required")
+    private Long userId;
+    
+    @NotNull(message = "Currency code is required")
+    private String currencyCode;
+    
+    private BigDecimal balance;
     private String status;
-    private LocalDateTime createdAt;
-    
-    // Constructors
-    public SmartContract() {}
-    
-    public SmartContract(Long ownerId, String contractName, String contractCode) {
-        this.ownerId = ownerId;
-        this.contractName = contractName;
-        this.contractCode = contractCode;
-        this.status = "ACTIVE";
-        this.createdAt = LocalDateTime.now();
-    }
-    
-    // Getters and Setters
-    public Long getContractId() { return contractId; }
-    public void setContractId(Long contractId) { this.contractId = contractId; }
-    
-    public Long getOwnerId() { return ownerId; }
-    public void setOwnerId(Long ownerId) { this.ownerId = ownerId; }
-    
-    public String getContractName() { return contractName; }
-    public void setContractName(String contractName) { this.contractName = contractName; }
-    
-    public String getContractCode() { return contractCode; }
-    public void setContractCode(String contractCode) { this.contractCode = contractCode; }
-    
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
+```
 
-// BlockchainData.java
-package com.cryptotrading.model;
+## 6. Service Classes
 
-import java.time.LocalDateTime;
+### CurrencyService
+```java
+package com.crypto.trading.service;
 
-public class BlockchainData {
-    private Long blockId;
-    private String blockHash;
-    private String previousHash;
-    private String merkleRoot;
-    private LocalDateTime timestampData;
-    private Integer difficultyLevel;
-    private Long nonce;
-    
-    // Constructors
-    public BlockchainData() {}
-    
-    public BlockchainData(String blockHash, String previousHash, String merkleRoot) {
-        this.blockHash = blockHash;
-        this.previousHash = previousHash;
-        this.merkleRoot = merkleRoot;
-        this.timestampData = LocalDateTime.now();
-        this.difficultyLevel = 1;
-        this.nonce = 0L;
-    }
-    
-    // Getters and Setters
-    public Long getBlockId() { return blockId; }
-    public void setBlockId(Long blockId) { this.blockId = blockId; }
-    
-    public String getBlockHash() { return blockHash; }
-    public void setBlockHash(String blockHash) { this.blockHash = blockHash; }
-    
-    public String getPreviousHash() { return previousHash; }
-    public void setPreviousHash(String previousHash) { this.previousHash = previousHash; }
-    
-    public String getMerkleRoot() { return merkleRoot; }
-    public void setMerkleRoot(String merkleRoot) { this.merkleRoot = merkleRoot; }
-    
-    public LocalDateTime getTimestampData() { return timestampData; }
-    public void setTimestampData(LocalDateTime timestampData) { this.timestampData = timestampData; }
-    
-    public Integer getDifficultyLevel() { return difficultyLevel; }
-    public void setDifficultyLevel(Integer difficultyLevel) { this.difficultyLevel = difficultyLevel; }
-    
-    public Long getNonce() { return nonce; }
-    public void setNonce(Long nonce) { this.nonce = nonce; }
-}
+import com.crypto.trading.entity.Currency;
+import com.crypto.trading.repository.CurrencyRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-Now let me create the Utils classes:
-
-// Utils Classes for Crypto Trading Platform
-
-// DatabaseConnection.java
-package com.cryptotrading.utils;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Properties;
-
-public class DatabaseConnection {
-    private static final String URL = "jdbc:oracle:thin:@localhost:1521:XE";
-    private static final String USERNAME = "crypto_user";
-    private static final String PASSWORD = "crypto_pass";
-    
-    private static Connection connection = null;
-    
-    public static Connection getConnection() throws SQLException {
-        if (connection == null || connection.isClosed()) {
-            try {
-                Class.forName("oracle.jdbc.driver.OracleDriver");
-                Properties props = new Properties();
-                props.setProperty("user", USERNAME);
-                props.setProperty("password", PASSWORD);
-                props.setProperty("oracle.jdbc.timezoneAsRegion", "false");
-                
-                connection = DriverManager.getConnection(URL, props);
-                connection.setAutoCommit(false);
-                
-                System.out.println("Database connection established successfully!");
-            } catch (ClassNotFoundException e) {
-                System.err.println("Oracle JDBC Driver not found: " + e.getMessage());
-                throw new SQLException("Driver not found", e);
-            } catch (SQLException e) {
-                System.err.println("Database connection failed: " + e.getMessage());
-                throw e;
-            }
-        }
-        return connection;
-    }
-    
-    public static void closeConnection() {
-        if (connection != null) {
-            try {
-                connection.close();
-                System.out.println("Database connection closed.");
-            } catch (SQLException e) {
-                System.err.println("Error closing connection: " + e.getMessage());
-            }
-        }
-    }
-    
-    public static void commit() throws SQLException {
-        if (connection != null && !connection.isClosed()) {
-            connection.commit();
-        }
-    }
-    
-    public static void rollback() throws SQLException {
-        if (connection != null && !connection.isClosed()) {
-            connection.rollback();
-        }
-    }
-}
-
-// CryptographyUtils.java
-package com.cryptotrading.utils;
-
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Base64;
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-
-public class CryptographyUtils {
-    private static final String ALGORITHM = "AES";
-    private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
-    private static final SecureRandom secureRandom = new SecureRandom();
-    
-    // Generate SHA-256 hash
-    public static String generateHash(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes());
-            return bytesToHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 algorithm not available", e);
-        }
-    }
-    
-    // Generate secure PIN hash with salt
-    public static String hashPin(String pin) {
-        String salt = generateSalt();// Service Classes for Crypto Trading Platform
-
-// UserService.java
-package com.cryptotrading.service;
-
-import com.cryptotrading.model.User;
-import com.cryptotrading.utils.DatabaseConnection;
-import com.cryptotrading.utils.CryptographyUtils;
-import com.cryptotrading.utils.ValidationUtils;
-
-import java.sql.*;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
+@Service
+@Transactional
+public class CurrencyService {
+
+    @Autowired
+    private CurrencyRepository currencyRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public List<Currency> getAllCurrencies() {
+        return currencyRepository.findAll();
+    }
+
+    public Optional<Currency> getCurrencyByCode(String currencyCode) {
+        return currencyRepository.findById(currencyCode);
+    }
+
+    public Optional<Currency> getCurrencyBySymbol(String symbol) {
+        return currencyRepository.findBySymbol(symbol);
+    }
+
+    public Currency saveCurrency(Currency currency) {
+        return currencyRepository.save(currency);
+    }
+
+    public void deleteCurrency(String currencyCode) {
+        currencyRepository.deleteById(currencyCode);
+    }
+
+    public List<Currency> getCurrenciesByNetwork(String network) {
+        return currencyRepository.findByBlockchainNetwork(network);
+    }
+
+    public void updateCurrencyPrice(String currencyCode, BigDecimal newPrice) {
+        String sql = "UPDATE DC_Currencies SET current_price = ? WHERE currency_code = ?";
+        jdbcTemplate.update(sql, newPrice, currencyCode);
+    }
+
+    public List<Currency> getTopCurrenciesByPrice() {
+        return currencyRepository.findAllOrderByPriceDesc();
+    }
+}
+```
+
+### UserService
+```java
+package com.crypto.trading.service;
+
+import com.crypto.trading.entity.User;
+import com.crypto.trading.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@Transactional
 public class UserService {
-    
-    public User registerUser(String username, String pin, String email, String phoneNumber) throws SQLException {
-        if (!ValidationUtils.isValidUsername(username)) {
-            throw new IllegalArgumentException("Invalid username format");
-        }
-        if (!ValidationUtils.isValidPin(pin)) {
-            throw new IllegalArgumentException("PIN must be 4-8 digits");
-        }
-        if (!ValidationUtils.isValidEmail(email)) {
-            throw new IllegalArgumentException("Invalid email format");
-        }
-        
-        Connection conn = DatabaseConnection.getConnection();
-        
-        // Check if username or email already exists
-        String checkQuery = "SELECT COUNT(*) FROM DC_Users WHERE username = ? OR email = ?";
-        try (PreparedStatement checkStmt = conn.prepareStatement(checkQuery)) {
-            checkStmt.setString(1, username);
-            checkStmt.setString(2, email);
-            ResultSet rs = checkStmt.executeQuery();
-            if (rs.next() && rs.getInt(1) > 0) {
-                throw new SQLException("Username or email already exists");
-            }
-        }
-        
-        // Insert new user
-        String insertQuery = "INSERT INTO DC_Users (user_id, username, encrypted_pin, email, phone_number, wallet_address) " +
-                            "VALUES (user_seq.NEXTVAL, ?, ?, ?, ?, ?)";
-        
-        String encryptedPin = CryptographyUtils.hashPin(pin);
-        String walletAddress = CryptographyUtils.generateWalletAddress(username, email);
-        
-        try (PreparedStatement stmt = conn.prepareStatement(insertQuery, new String[]{"user_id"})) {
-            stmt.setString(1, username);
-            stmt.setString(2, encryptedPin);
-            stmt.setString(3, email);
-            stmt.setString(4, phoneNumber);
-            stmt.setString(5, walletAddress);
-            
-            int rowsAffected = stmt.executeUpdate();
-            if (rowsAffected > 0) {
-                ResultSet generatedKeys = stmt.getGeneratedKeys();
-                if (generatedKeys.next()) {
-                    Long userId = generatedKeys.getLong(1);
-                    
-                    // Create default wallets for major cryptocurrencies
-                    WalletService walletService = new WalletService();
-                    String[] defaultCurrencies = {"BTC", "ETH", "USDT"};
-                    for (String currency : defaultCurrencies) {
-                        walletService.createWallet(userId, currency);
-                    }
-                    
-                    DatabaseConnection.commit();
-                    return getUserById(userId);
-                }
-            }
-        } catch (SQLException e) {
-            DatabaseConnection.rollback();
-            throw e;
-        }
-        
-        throw new SQLException("Failed to create user");
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
     }
-    
-    public User authenticateUser(String username, String pin) throws SQLException {
-        String query = "SELECT user_id, username, encrypted_pin, email, phone_number, kyc_status, " +
-                      "wallet_address, created_at, updated_at FROM DC_Users WHERE username = ?";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setString(1, username);
-            ResultSet rs = stmt.executeQuery();
-            
-            if (rs.next()) {
-                String storedPin = rs.getString("encrypted_pin");
-                if (CryptographyUtils.verifyPin(pin, storedPin)) {
-                    return mapResultSetToUser(rs);
-                }
-            }
-        }
-        
-        return null; // Authentication failed
+
+    public Optional<User> getUserById(Long userId) {
+        return userRepository.findById(userId);
     }
-    
-    public User getUserById(Long userId) throws SQLException {
-        String query = "SELECT user_id, username, encrypted_pin, email, phone_number, kyc_status, " +
-                      "wallet_address, created_at, updated_at FROM DC_Users WHERE user_id = ?";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setLong(1, userId);
-            ResultSet rs = stmt.executeQuery();
-            
-            if (rs.next()) {
-                return mapResultSetToUser(rs);
-            }
-        }
-        
-        return null;
+
+    public Optional<User> getUserByUsername(String username) {
+        return userRepository.findByUsername(username);
     }
-    
-    public boolean updateUserProfile(Long userId, String email, String phoneNumber) throws SQLException {
-        String query = "UPDATE DC_Users SET email = ?, phone_number = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setString(1, email);
-            stmt.setString(2, phoneNumber);
-            stmt.setLong(3, userId);
-            
-            int rowsAffected = stmt.executeUpdate();
-            DatabaseConnection.commit();
-            return rowsAffected > 0;
-        } catch (SQLException e) {
-            DatabaseConnection.rollback();
-            throw e;
-        }
+
+    public Optional<User> getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
     }
-    
-    private User mapResultSetToUser(ResultSet rs) throws SQLException {
-        User user = new User();
-        user.setUserId(rs.getLong("user_id"));
-        user.setUsername(rs.getString("username"));
-        user.setEncryptedPin(rs.getString("encrypted_pin"));
-        user.setEmail(rs.getString("email"));
-        user.setPhoneNumber(rs.getString("phone_number"));
-        user.setKycStatus(rs.getString("kyc_status"));
-        user.setWalletAddress(rs.getString("wallet_address"));
-        user.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
-        user.setUpdatedAt(rs.getTimestamp("updated_at").toLocalDateTime());
-        return user;
+
+    public User saveUser(User user) {
+        return userRepository.save(user);
+    }
+
+    public void deleteUser(Long userId) {
+        userRepository.deleteById(userId);
+    }
+
+    public List<User> getUsersByKycStatus(String kycStatus) {
+        return userRepository.findByKycStatus(kycStatus);
+    }
+
+    public void updateKycStatus(Long userId, String kycStatus) {
+        String sql = "UPDATE DC_Users SET kyc_status = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?";
+        jdbcTemplate.update(sql, kycStatus, userId);
+    }
+
+    public Long getApprovedUsersCount() {
+        return userRepository.countApprovedUsers();
+    }
+
+    public boolean existsByUsername(String username) {
+        return userRepository.findByUsername(username).isPresent();
+    }
+
+    public boolean existsByEmail(String email) {
+        return userRepository.findByEmail(email).isPresent();
     }
 }
+```
 
-// WalletService.java
-package com.cryptotrading.service;
+### WalletService
+```java
+package com.crypto.trading.service;
 
-import com.cryptotrading.model.Wallet;
-import com.cryptotrading.utils.DatabaseConnection;
+import com.crypto.trading.entity.Wallet;
+import com.crypto.trading.repository.WalletRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.sql.*;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+@Service
+@Transactional
 public class WalletService {
-    
-    public Wallet createWallet(Long userId, String currencyCode) throws SQLException {
-        String insertQuery = "INSERT INTO DC_Wallets (wallet_id, user_id, currency_code) " +
-                            "VALUES (wallet_seq.NEXTVAL, ?, ?)";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement(insertQuery, new String[]{"wallet_id"})) {
-            stmt.setLong(1, userId);
-            stmt.setString(2, currencyCode);
-            
-            int rowsAffected = stmt.executeUpdate();
-            if (rowsAffected > 0) {
-                ResultSet generatedKeys = stmt.getGeneratedKeys();
-                if (generatedKeys.next()) {
-                    Long walletId = generatedKeys.getLong(1);
-                    return getWalletById(walletId);
-                }
-            }
-        }
-        
-        throw new SQLException("Failed to create wallet");
+
+    @Autowired
+    private WalletRepository walletRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public List<Wallet> getAllWallets() {
+        return walletRepository.findAll();
     }
-    
-    public List<Wallet> getUserWallets(Long userId) throws SQLException {
-        String query = "SELECT w.wallet_id, w.user_id, w.currency_code, w.balance, w.status, " +
-                      "w.created_at, w.updated_at, c.currency_name, c.symbol " +
-                      "FROM DC_Wallets w JOIN DC_Currencies c ON w.currency_code = c.currency_code " +
-                      "WHERE w.user_id = ? AND w.status = 'ACTIVE' ORDER BY w.currency_code";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        List<Wallet> wallets = new ArrayList<>();
-        
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setLong(1, userId);
-            ResultSet rs = stmt.executeQuery();
-            
-            while (rs.next()) {
-                wallets.add(mapResultSetToWallet(rs));
-            }
-        }
-        
-        return wallets;
+
+    public Optional<Wallet> getWalletById(Long walletId) {
+        return walletRepository.findById(walletId);
     }
-    
-    public Wallet getUserWallet(Long userId, String currencyCode) throws SQLException {
-        String query = "SELECT wallet_id, user_id, currency_code, balance, status, created_at, updated_at " +
-                      "FROM DC_Wallets WHERE user_id = ? AND currency_code = ? AND status = 'ACTIVE'";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setLong(1, userId);
-            stmt.setString(2, currencyCode);
-            ResultSet rs = stmt.executeQuery();
-            
-            if (rs.next()) {
-                return mapResultSetToWallet(rs);
-            }
-        }
-        
-        return null;
+
+    public List<Wallet> getWalletsByUserId(Long userId) {
+        return walletRepository.findByUserId(userId);
     }
-    
-    public boolean updateBalance(Long userId, String currencyCode, BigDecimal newBalance) throws SQLException {
-        String query = "UPDATE DC_Wallets SET balance = ?, updated_at = CURRENT_TIMESTAMP " +
-                      "WHERE user_id = ? AND currency_code = ? AND status = 'ACTIVE'";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setBigDecimal(1, newBalance);
-            stmt.setLong(2, userId);
-            stmt.setString(3, currencyCode);
-            
-            return stmt.executeUpdate() > 0;
-        }
+
+    public Optional<Wallet> getUserWalletByCurrency(Long userId, String currencyCode) {
+        return walletRepository.findByUserIdAndCurrencyCurrencyCode(userId, currencyCode);
     }
-    
-    public boolean addToBalance(Long userId, String currencyCode, BigDecimal amount) throws SQLException {
-        Wallet wallet = getUserWallet(userId, currencyCode);
-        if (wallet == null) {
-            // Create wallet if it doesn't exist
-            wallet = createWallet(userId, currencyCode);
-        }
-        
-        BigDecimal newBalance = wallet.getBalance().add(amount);
-        return updateBalance(userId, currencyCode, newBalance);
+
+    public Wallet saveWallet(Wallet wallet) {
+        return walletRepository.save(wallet);
     }
-    
-    public boolean deductFromBalance(Long userId, String currencyCode, BigDecimal amount) throws SQLException {
-        Wallet wallet = getUserWallet(userId, currencyCode);
-        if (wallet == null || wallet.getBalance().compareTo(amount) < 0) {
-            return false; // Insufficient balance
-        }
-        
-        BigDecimal newBalance = wallet.getBalance().subtract(amount);
-        return updateBalance(userId, currencyCode, newBalance);
+
+    public void deleteWallet(Long walletId) {
+        walletRepository.deleteById(walletId);
     }
-    
-    private Wallet getWalletById(Long walletId) throws SQLException {
-        String query = "SELECT wallet_id, user_id, currency_code, balance, status, created_at, updated_at " +
-                      "FROM DC_Wallets WHERE wallet_id = ?";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setLong(1, walletId);
-            ResultSet rs = stmt.executeQuery();
-            
-            if (rs.next()) {
-                return mapResultSetToWallet(rs);
-            }
-        }
-        
-        return null;
+
+    public void updateWalletBalance(Long walletId, BigDecimal newBalance) {
+        String sql = "UPDATE DC_Wallets SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE wallet_id = ?";
+        jdbcTemplate.update(sql, newBalance, walletId);
     }
-    
-    private Wallet mapResultSetToWallet(ResultSet rs) throws SQLException {
-        Wallet wallet = new Wallet();
-        wallet.setWalletId(rs.getLong("wallet_id"));
-        wallet.setUserId(rs.getLong("user_id"));
-        wallet.setCurrencyCode(rs.getString("currency_code"));
-        wallet.setBalance(rs.getBigDecimal("balance"));
-        wallet.setStatus(rs.getString("status"));
-        wallet.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
-        wallet.setUpdatedAt(rs.getTimestamp("updated_at").toLocalDateTime());
-        return wallet;
+
+    public BigDecimal getTotalBalanceByCurrency(String currencyCode) {
+        return walletRepository.getTotalBalanceByCurrency(currencyCode);
+    }
+
+    public List<Wallet> getActiveWallets() {
+        return walletRepository.findByStatus("ACTIVE");
+    }
+
+    public void deactivateWallet(Long walletId) {
+        String sql = "UPDATE DC_Wallets SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP WHERE wallet_id = ?";
+        jdbcTemplate.update(sql, walletId);
     }
 }
+```
 
-// TradingService.java
-package com.cryptotrading.service;
+### TransactionService
+```java
+package com.crypto.trading.service;
 
-import com.cryptotrading.model.Transaction;
-import com.cryptotrading.model.Currency;
-import com.cryptotrading.utils.DatabaseConnection;
-import com.cryptotrading.utils.CryptographyUtils;
-import com.cryptotrading.utils.ValidationUtils;
-import com.cryptotrading.utils.Constants;
+import com.crypto.trading.entity.Transaction;
+import com.crypto.trading.repository.TransactionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.sql.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-public class TradingService {
-    private final WalletService walletService;
-    private final CurrencyService currencyService;
-    
-    public TradingService() {
-        this.walletService = new WalletService();
-        this.currencyService = new CurrencyService();
+@Service
+@Transactional
+public class TransactionService {
+
+    @Autowired
+    private TransactionRepository transactionRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public List<Transaction> getAllTransactions() {
+        return transactionRepository.findAll();
     }
-    
-    public Transaction buycryptocurrency(Long userId, String currencyCode, BigDecimal amount, BigDecimal pricePerUnit) throws SQLException {
-        if (!ValidationUtils.isValidAmount(amount)) {
-            throw new IllegalArgumentException("Invalid amount");
-        }
-        
-        BigDecimal totalCost = amount.multiply(pricePerUnit);
-        BigDecimal tradingFee = totalCost.multiply(Constants.TRADING_FEE_PERCENTAGE);
-        BigDecimal totalWithFee = totalCost.add(tradingFee);
-        
-        Connection conn = DatabaseConnection.getConnection();
-        
-        try {
-            // Check if user has sufficient USDT balance (assuming USDT is the base currency)
-            if (!walletService.deductFromBalance(userId, "USDT", totalWithFee)) {
-                throw new SQLException("Insufficient USDT balance");
-            }
-            
-            // Add cryptocurrency to user's wallet
-            if (!walletService.addToBalance(userId, currencyCode, amount)) {
-                // Rollback USDT deduction
-                walletService.addToBalance(userId, "USDT", totalWithFee);
-                throw new SQLException("Failed to add cryptocurrency to wallet");
-            }
-            
-            // Create transaction record
-            Transaction transaction = new Transaction();
-            transaction.setUserId(userId);
-            transaction.setTransactionType(Constants.TX_BUY);
-            transaction.setFromCurrency("USDT");
-            transaction.setToCurrency(currencyCode);
-            transaction.setAmount(amount);
-            transaction.setPricePerUnit(pricePerUnit);
-            transaction.setTotalValue(totalCost);
-            transaction.setTransactionFee(tradingFee);
-            transaction.setStatus(Constants.STATUS_COMPLETED);
-            transaction.setTransactionHash(CryptographyUtils.generateTransactionHash(
-                userId + currencyCode + amount.toString() + System.currentTimeMillis()));
-            transaction.setCompletedAt(LocalDateTime.now());
-            
-            Transaction savedTransaction = saveTransaction(transaction);
-            DatabaseConnection.commit();
-            
-            return savedTransaction;
-            
-        } catch (SQLException e) {
-            DatabaseConnection.rollback();
-            throw e;
-        }
+
+    public Optional<Transaction> getTransactionById(Long transactionId) {
+        return transactionRepository.findById(transactionId);
     }
-    
-    public Transaction sellCryptocurrency(Long userId, String currencyCode, BigDecimal amount, BigDecimal pricePerUnit) throws SQLException {
-        if (!ValidationUtils.isValidAmount(amount)) {
-            throw new IllegalArgumentException("Invalid amount");
-        }
-        
-        BigDecimal totalValue = amount.multiply(pricePerUnit);
-        BigDecimal tradingFee = totalValue.multiply(Constants.TRADING_FEE_PERCENTAGE);
-        BigDecimal netValue = totalValue.subtract(tradingFee);
-        
-        Connection conn = DatabaseConnection.getConnection();
-        
-        try {
-            // Check if user has sufficient cryptocurrency balance
-            if (!walletService.deductFromBalance(userId, currencyCode, amount)) {
-                throw new SQLException("Insufficient " + currencyCode + " balance");
-            }
-            
-            // Add USDT to user's wallet
-            if (!walletService.addToBalance(userId, "USDT", netValue)) {
-                // Rollback cryptocurrency deduction
-                walletService.addToBalance(userId, currencyCode, amount);
-                throw new SQLException("Failed to add USDT to wallet");
-            }
-            
-            // Create transaction record
-            Transaction transaction = new Transaction();
-            transaction.setUserId(userId);
-            transaction.setTransactionType(Constants.TX_SELL);
-            transaction.setFromCurrency(currencyCode);
-            transaction.setToCurrency("USDT");
-            transaction.setAmount(amount);
-            transaction.setPricePerUnit(pricePerUnit);
-            transaction.setTotalValue(totalValue);
-            transaction.setTransactionFee(tradingFee);
-            transaction.setStatus(Constants.STATUS_COMPLETED);
-            transaction.setTransactionHash(CryptographyUtils.generateTransactionHash(
-                userId + currencyCode + amount.toString() + System.currentTimeMillis()));
-            transaction.setCompletedAt(LocalDateTime.now());
-            
-            Transaction savedTransaction = saveTransaction(transaction);
-            DatabaseConnection.commit();
-            
-            return savedTransaction;
-            
-        } catch (SQLException e) {
-            DatabaseConnection.rollback();
-            throw e;
-        }
+
+    public List<Transaction> getTransactionsByUserId(Long userId) {
+        return transactionRepository.findByUserId(userId);
     }
-    
-    public Transaction transferFunds(Long fromUserId, Long toUserId, String currencyCode, BigDecimal amount) throws SQLException {
-        if (!ValidationUtils.isValidAmount(amount)) {
-            throw new IllegalArgumentException("Invalid amount");
-        }
-        
-        BigDecimal transferFee = amount.multiply(new BigDecimal("0.0005")); // 0.05% transfer fee
-        BigDecimal totalDeduction = amount.add(transferFee);
-        
-        Connection conn = DatabaseConnection.getConnection();
-        
-        try {
-            // Deduct from sender
-            if (!walletService.deductFromBalance(fromUserId, currencyCode, totalDeduction)) {
-                throw new SQLException("Insufficient balance for transfer");
-            }
-            
-            // Add to receiver
-            if (!walletService.addToBalance(toUserId, currencyCode, amount)) {
-                // Rollback sender deduction
-                walletService.addToBalance(fromUserId, currencyCode, totalDeduction);
-                throw new SQLException("Failed to transfer funds to recipient");
-            }
-            
-            // Create transaction record
-            Transaction transaction = new Transaction();
-            transaction.setUserId(fromUserId);
-            transaction.setTransactionType(Constants.TX_TRANSFER);
-            transaction.setFromCurrency(currencyCode);
-            transaction.setToCurrency(currencyCode);
-            transaction.setAmount(amount);
-            transaction.setPricePerUnit(BigDecimal.ONE);
-            transaction.setTotalValue(amount);
-            transaction.setTransactionFee(transferFee);
-            transaction.setStatus(Constants.STATUS_COMPLETED);
-            transaction.setTransactionHash(CryptographyUtils.generateTransactionHash(
-                fromUserId + "" + toUserId + currencyCode + amount.toString() + System.currentTimeMillis()));
-            transaction.setCompletedAt(LocalDateTime.now());
-            
-            Transaction savedTransaction = saveTransaction(transaction);
-            DatabaseConnection.commit();
-            
-            return savedTransaction;
-            
-        } catch (SQLException e) {
-            DatabaseConnection.rollback();
-            throw e;
-        }
+
+    public List<Transaction> getTransactionsByType(String transactionType) {
+        return transactionRepository.findByTransactionType(transactionType);
     }
-    
-    private Transaction saveTransaction(Transaction transaction) throws SQLException {
-        String insertQuery = "INSERT INTO DC_Transactions (transaction_id, user_id, transaction_type, " +
-                            "from_currency, to_currency, amount, price_per_unit, total_value, transaction_fee, " +
-                            "status, transaction_hash, completed_at) VALUES (transaction_seq.NEXTVAL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        Connection conn = DatabaseConnection.getConnection();
-        
 
+    public List<Transaction> getTransactionsByStatus(String status) {
+        return transactionRepository.findByStatus(status);
+    }
 
+    public Transaction saveTransaction(Transaction transaction) {
+        return transactionRepository.save(transaction);
+    }
 
+    public void deleteTransaction(Long transactionId) {
+        transactionRepository.deleteById(transactionId);
+    }
 
-// Main CLI Application for Crypto Trading Platform
+    public void updateTransactionStatus(Long transactionId, String status) {
+        String sql = "UPDATE DC_Transactions SET status = ? WHERE transaction_id = ?";
+        jdbcTemplate.update(sql, status, transactionId);
+    }
 
-// CryptoTradingCLI.java
-package com.cryptotrading;
+    public void completeTransaction(Long transactionId) {
+        String sql = "UPDATE DC_Transactions SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP WHERE transaction_id = ?";
+        jdbcTemplate.update(sql, transactionId);
+    }
 
-import com.cryptotrading.model.*;
-import com.cryptotrading.service.*;
-import com.cryptotrading.utils.*;
+    public List<Transaction> getTransactionsBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {
+        return transactionRepository.findTransactionsBetweenDates(startDate, endDate);
+    }
 
+    public Double getTotalBuyVolume() {
+        return transactionRepository.getTotalBuyVolume();
+    }
+
+    public Optional<Transaction> getTransactionByHash(String transactionHash) {
+        return transactionRepository.findByTransactionHash(transactionHash);
+    }
+}
+```
+
+### SmartContractService
+```java
+package com.crypto.trading.service;
+
+import com.crypto.trading.entity.SmartContract;
+import com.crypto.trading.repository.SmartContractRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@Transactional
+public class SmartContractService {
+
+    @Autowired
+    private SmartContractRepository smartContractRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public List<SmartContract> getAllSmartContracts() {
+        return smartContractRepository.findAll();
+    }
+
+    public Optional<SmartContract> getSmartContractById(Long contractId) {
+        return smartContractRepository.findById(contractId);
+    }
+
+    public List<SmartContract> getSmartContractsByOwnerId(Long ownerId) {
+        return smartContractRepository.findByOwnerId(ownerId);
+    }
+
+    public List<SmartContract> getSmartContractsByStatus(String status) {
+        return smartContractRepository.findByStatus(status);
+    }
+
+    public SmartContract saveSmartContract(SmartContract smartContract) {
+        return smartContractRepository.save(smartContract);
+    }
+
+    public void deleteSmartContract(Long contractId) {
+        smartContractRepository.deleteById(contractId);
+    }
+
+    public void updateContractStatus(Long contractId, String status) {
+        String sql = "UPDATE DC_SmartContracts SET status = ? WHERE contract_id = ?";
+        jdbcTemplate.update(sql, status, contractId);
+    }
+
+    public List<SmartContract> searchContractsByName(String contractName) {
+        return smartContractRepository.findByContractNameContaining(contractName);
+    }
+
+    public void deactivateContract(Long contractId) {
+        updateContractStatus(contractId, "INACTIVE");
+    }
+}
+```
+
+### BlockchainDataService
+```java
+package com.crypto.trading.service;
+
+import com.crypto.trading.entity.BlockchainData;
+import com.crypto.trading.repository.BlockchainDataRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@Transactional
+public class BlockchainDataService {
+
+    @Autowired
+    private BlockchainDataRepository blockchainDataRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public List<BlockchainData> getAllBlocks() {
+        return blockchainDataRepository.findAll();
+    }
+
+    public Optional<BlockchainData> getBlockById(Long blockId) {
+        return blockchainDataRepository.findById(blockId);
+    }
+
+    public Optional<BlockchainData> getBlockByHash(String blockHash) {
+        return blockchainDataRepository.findByBlockHash(blockHash);
+    }
+
+    public BlockchainData saveBlock(BlockchainData blockchainData) {
+        return blockchainDataRepository.save(blockchainData);
+    }
+
+    public void deleteBlock(Long blockId) {
+        blockchainDataRepository.deleteById(blockId);
+    }
+
+    public List<BlockchainData> getBlocksBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {
+        return blockchainDataRepository.findBlocksBetweenDates(startDate, endDate);
+    }
+
+    public List<BlockchainData> getLatestBlocks() {
+        return blockchainDataRepository.findAllOrderByTimestampDesc();
+    }
+
+    public List<BlockchainData> getBlocksWithMinDifficulty(Integer minDifficulty) {
+        return blockchainDataRepository.findBlocksWithMinDifficulty(minDifficulty);
+    }
+}
+```
+
+## 7. Controller Classes
+
+### CurrencyController
+```java
+package com.crypto.trading.controller;
+
+import com.crypto.trading.entity.Currency;
+import com.crypto.trading.service.CurrencyService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.util.List;
-import java.util.Scanner;
+import java.util.Optional;
 
-public class CryptoTradingCLI {
-    private final Scanner scanner;
-    private final UserService userService;
-    private final WalletService walletService;
-    private final TradingService tradingService;
-    private final CurrencyService currencyService;
-    private final TransactionService transactionService;
-    private User currentUser;
-    
-    public CryptoTradingCLI() {
-        this.scanner = new Scanner(System.in);
-        this.userService = new UserService();
-        this.walletService = new WalletService();
-        this.tradingService = new TradingService();
-        this.currencyService = new CurrencyService();
-        this.transactionService = new TransactionService();
+@RestController
+@RequestMapping("/api/currencies")
+@Tag(name = "Currency Management", description = "APIs for managing cryptocurrencies")
+public class CurrencyController {
+
+    @Autowired
+    private CurrencyService currencyService;
+
+    @GetMapping
+    @Operation(summary = "Get all currencies", description = "Retrieve all cryptocurrencies")
+    public ResponseEntity<List<Currency>> getAllCurrencies() {
+        List<Currency> currencies = currencyService.getAllCurrencies();
+        return ResponseEntity.ok(currencies);
     }
-    
-    public static void main(String[] args) {
-        CryptoTradingCLI app = new CryptoTradingCLI();
-        app.run();
+
+    @GetMapping("/{currencyCode}")
+    @Operation(summary = "Get currency by code", description = "Retrieve a specific currency by its code")
+    public ResponseEntity<Currency> getCurrencyByCode(
+            @Parameter(description = "Currency code") @PathVariable String currencyCode) {
+        Optional<Currency> currency = currencyService.getCurrencyByCode(currencyCode);
+        return currency.map(ResponseEntity::ok)
+                      .orElse(ResponseEntity.notFound().build());
     }
-    
-    public void run() {
-        printHeader();
-        
-        try {
-            while (true) {
-                if (currentUser == null) {
-                    showAuthMenu();
-                } else {
-                    showMainMenu();
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("An error occurred: " + e.getMessage());
-        } finally {
-            DatabaseConnection.closeConnection();
-            scanner.close();
+
+    @GetMapping("/symbol/{symbol}")
+    @Operation(summary = "Get currency by symbol", description = "Retrieve a currency by its symbol")
+    public ResponseEntity<Currency> getCurrencyBySymbol(
+            @Parameter(description = "Currency symbol") @PathVariable String symbol) {
+        Optional<Currency> currency = currencyService.getCurrencyBySymbol(symbol);
+        return currency.map(ResponseEntity::ok)
+                      .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping
+    @Operation(summary = "Create new currency", description = "Add a new cryptocurrency")
+    public ResponseEntity<Currency> createCurrency(@Valid @RequestBody Currency currency) {
+        Currency savedCurrency = currencyService.saveCurrency(currency);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedCurrency);
+    }
+
+    @PutMapping("/{currencyCode}")
+    @Operation(summary = "Update currency", description = "Update an existing currency")
+    public ResponseEntity<Currency> updateCurrency(
+            @PathVariable String currencyCode,
+            @Valid @RequestBody Currency currency) {
+        if (!currencyService.getCurrencyByCode(currencyCode).isPresent()) {
+            return ResponseEntity.notFound().build();
         }
+        currency.setCurrencyCode(currencyCode);
+        Currency updatedCurrency = currencyService.saveCurrency(currency);
+        return ResponseEntity.ok(updatedCurrency);
     }
-    
-    private void printHeader() {
-        System.out.println("========================================");
-        System.out.println("    CRYPTO TRADING PLATFORM CLI");
-        System.out.println("========================================");
-        System.out.println();
-    }
-    
-    private void showAuthMenu() {
-        System.out.println("\n--- Authentication Menu ---");
-        System.out.println("1. Login");
-        System.out.println("2. Register");
-        System.out.println("3. Exit");
-        System.out.print("Choose an option: ");
-        
-        int choice = getIntInput();
-        switch (choice) {
-            case 1:
-                login();
-                break;
-            case 2:
-                register();
-                break;
-            case 3:
-                exitApplication();
-                break;
-            default:
-                System.out.println("Invalid option. Please try again.");
+
+    @DeleteMapping("/{currencyCode}")
+    @Operation(summary = "Delete currency", description = "Delete a currency by its code")
+    public ResponseEntity<Void> deleteCurrency(@PathVariable String currencyCode) {
+        if (!currencyService.getCurrencyByCode(currencyCode).isPresent()) {
+            return ResponseEntity.notFound().build();
         }
+        currencyService.deleteCurrency(currencyCode);
+        return ResponseEntity.noContent().build();
     }
-    
-    private void showMainMenu() {
-        System.out.println("\n--- Main Menu ---");
-        System.out.println("Welcome, " + currentUser.getUsername() + "!");
-        System.out.println("Wallet Address: " + FormattingUtils.formatWalletAddress(currentUser.getWalletAddress()));
-        System.out.println();
-        
-        for (String option : Constants.MAIN_MENU_OPTIONS) {
-            System.out.println(option);
-        }
-        System.out.print("Choose an option: ");
-        
-        int choice = getIntInput();
-        switch (choice) {
-            case 1:
-                viewPortfolio();
-                break;
-            case 2:
-                buyCryptocurrency();
-                break;
-            case 3:
-                sellCryptocurrency();
-                break;
-            case 4:
-                transferFunds();
-                break;
-            case 5:
-                viewTransactionHistory();
-                break;
-            case 6:
-                viewMarketPrices();
-                break;
-            case 7:
-                accountSettings();
-                break;
-            case 8:
-                logout();
-                break;
-            default:
-                System.out.println("Invalid option. Please try again.");
-        }
+
+    @PutMapping("/{currencyCode}/price")
+    @Operation(summary = "Update currency price", description = "Update the current price of a currency")
+    public ResponseEntity<Void> updateCurrencyPrice(
+            @PathVariable String currencyCode,
+            @RequestParam BigDecimal newPrice) {
+        currencyService.updateCurrencyPrice(currencyCode, newPrice);
+        return ResponseEntity.ok().build();
     }
-    
-    private void login() {
-        System.out.print("Username: ");
-        String username = scanner.nextLine().trim();
-        
-        System.out.print("PIN: ");
-        String pin = scanner.nextLine().trim();
-        
-        try {
-            currentUser = userService.authenticateUser(username, pin);
-            if (currentUser != null) {
-                System.out.println("Login successful! Welcome back, " + currentUser.getUsername());
-                // Update market prices on login
-                currencyService.updateCurrencyPrices();
-            } else {
-                System.out.println("Invalid username or PIN. Please try again.");
-            }
-        } catch (SQLException e) {
-            System.err.println("Login failed: " + e.getMessage());
-        }
+
+    @GetMapping("/network/{network}")
+    @Operation(summary = "Get currencies by network", description = "Get all currencies on a specific blockchain network")
+    public ResponseEntity<List<Currency>> getCurrenciesByNetwork(@PathVariable String network) {
+        List<Currency> currencies = currencyService.getCurrenciesByNetwork(network);
+        return ResponseEntity.ok(currencies);
     }
-    
-    private void register() {
-        System.out.println("\n--- User Registration ---");
-        
-        System.out.print("Username (3-20 characters, alphanumeric): ");
-        String username = scanner.nextLine().trim();
-        
-        System.out.print("PIN (4-8 digits): ");
-        String pin = scanner.nextLine().trim();
-        
-        System.out.print("Email: ");
-        String email = scanner.nextLine().trim();
-        
-        System.out.print("Phone Number (optional): ");
-        String phoneNumber = scanner.nextLine().trim();
-        
-        try {
-            currentUser = userService.registerUser(username, pin, email, 
-                                                  phoneNumber.isEmpty() ? null : phoneNumber);
-            System.out.println("Registration successful! Welcome, " + currentUser.getUsername());
-            System.out.println("Your wallet address: " + currentUser.getWalletAddress());
-            System.out.println("Default wallets have been created for BTC, ETH, and USDT.");
-        } catch (SQLException e) {
-            System.err.println("Registration failed: " + e.getMessage());
-        } catch (IllegalArgumentException e) {
-            System.err.println("Invalid input: " + e.getMessage());
-        }
+
+    @GetMapping("/top")
+    @Operation(summary = "Get top currencies", description = "Get currencies ordered by price (highest first)")
+    public ResponseEntity<List<Currency>> getTopCurrencies() {
+        List<Currency> currencies = currencyService.getTopCurrenciesByPrice();
+        return ResponseEntity.ok(currencies);
     }
-    
-    private void viewPortfolio() {
-        System.out.println("\n--- Your Portfolio ---");
-        
-        try {
-            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
-            List<Currency> currencies = currencyService.getAllCurrencies();
-            
-            BigDecimal totalValueUSDT = BigDecimal.ZERO;
-            
-            System.out.printf("%-8s %-15s %-15s %-15s %-15s%n", 
-                            "Currency", "Name", "Balance", "Price (USDT)", "Value (USDT)");
-            System.out.println("-".repeat(75));
-            
-            for (Wallet wallet : wallets) {
-                Currency currency = currencies.stream()
-                    .filter(c -> c.getCurrencyCode().equals(wallet.getCurrencyCode()))
-                    .findFirst().orElse(null);
-                
-                if (currency != null) {
-                    BigDecimal balance = wallet.getBalance();
-                    BigDecimal price = currency.getCurrentPrice();
-                    BigDecimal value = balance.multiply(price);
-                    totalValueUSDT = totalValueUSDT.add(value);
-                    
-                    System.out.printf("%-8s %-15s %-15s %-15s %-15s%n",
-                                    currency.getCurrencyCode(),
-                                    currency.getCurrencyName(),
-                                    FormattingUtils.formatCurrency(balance),
-                                    FormattingUtils.formatPrice(price),
-                                    FormattingUtils.formatPrice(value));
-                }
-            }
-            
-            System.out.println("-".repeat(75));
-            System.out.printf("%-53s %-15s%n", "Total Portfolio Value:", 
-                            FormattingUtils.formatPrice(totalValueUSDT) + " USDT");
-            
-        } catch (SQLException e) {
-            System.err.println("Failed to load portfolio: " + e.getMessage());
-        }
+}
+```
+
+### UserController
+```java
+package com.crypto.trading.controller;
+
+import com.crypto.trading.dto.UserDto;
+import com.crypto.trading.entity.User;
+import com.crypto.trading.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/users")
+@Tag(name = "User Management", description = "APIs for managing users")
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping
+    @Operation(summary = "Get all users", description = "Retrieve all registered users")
+    public ResponseEntity<List<User>> getAllUsers() {
+        List<User> users = userService.getAllUsers();
+        return ResponseEntity.ok(users);
     }
-    
-    private void buyCryptocurrency() {
-        System.out.println("\n--- Buy Cryptocurrency ---");
-        
-        try {
-            // Show available currencies
-            List<Currency> currencies = currencyService.getAllCurrencies();
-            System.out.println("Available Cryptocurrencies:");
-            for (Currency currency : currencies) {
-                if (!"USDT".equals(currency.getCurrencyCode())) {
-                    System.out.printf("%-8s - %-15s (Price: %s USDT)%n",
-                                    currency.getCurrencyCode(),
-                                    currency.getCurrencyName(),
-                                    FormattingUtils.formatPrice(currency.getCurrentPrice()));
-                }
-            }
-            
-            // Check USDT balance
-            Wallet usdtWallet = walletService.getUserWallet(currentUser.getUserId(), "USDT");
-            System.out.println("\nYour USDT Balance: " + 
-                             FormattingUtils.formatCurrency(usdtWallet.getBalance()) + " USDT");
-            
-            System.out.print("\nEnter currency code to buy: ");
-            String currencyCode = scanner.nextLine().trim().toUpperCase();
-            
-            Currency selectedCurrency = currencyService.getCurrency(currencyCode);
-            if (selectedCurrency == null || "USDT".equals(currencyCode)) {
-                System.out.println("Invalid currency code.");
-                return;
-            }
-            
-            System.out.print("Enter amount to buy: ");
-            BigDecimal amount = getBigDecimalInput();
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-                System.out.println("Amount must be greater than zero.");
-                return;
-            }
-            
-            BigDecimal price = selectedCurrency.getCurrentPrice();
-            BigDecimal totalCost = amount.multiply(price);
-            BigDecimal fee = totalCost.multiply(Constants.TRADING_FEE_PERCENTAGE);
-            BigDecimal totalWithFee = totalCost.add(fee);
-            
-            System.out.printf("\nTrade Summary:%n");
-            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
-            System.out.printf("Price per unit: %s USDT%n", FormattingUtils.formatPrice(price));
-            System.out.printf("Subtotal: %s USDT%n", FormattingUtils.formatPrice(totalCost));
-            System.out.printf("Trading fee (0.1%%): %s USDT%n", FormattingUtils.formatPrice(fee));
-            System.out.printf("Total cost: %s USDT%n", FormattingUtils.formatPrice(totalWithFee));
-            
-            if (usdtWallet.getBalance().compareTo(totalWithFee) < 0) {
-                System.out.println("\nInsufficient USDT balance.");
-                return;
-            }
-            
-            System.out.print("\nConfirm purchase? (y/n): ");
-            String confirm = scanner.nextLine().trim().toLowerCase();
-            
-            if ("y".equals(confirm) || "yes".equals(confirm)) {
-                Transaction transaction = tradingService.buyCryptocurrency(
-                    currentUser.getUserId(), currencyCode, amount, price);
-                
-                System.out.println("\nPurchase successful!");
-                System.out.println("Transaction ID: " + transaction.getTransactionId());
-                System.out.println("Transaction Hash: " + 
-                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
-            } else {
-                System.out.println("Purchase cancelled.");
-            }
-            
-        } catch (SQLException e) {
-            System.err.println("Purchase failed: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-        }
+
+    @GetMapping("/{userId}")
+    @Operation(summary = "Get user by ID", description = "Retrieve a specific user by ID")
+    public ResponseEntity<User> getUserById(
+            @Parameter(description = "User ID") @PathVariable Long userId) {
+        Optional<User> user = userService.getUserById(userId);
+        return user.map(ResponseEntity::ok)
+                  .orElse(ResponseEntity.notFound().build());
     }
-    
-    private void sellCryptocurrency() {
-        System.out.println("\n--- Sell Cryptocurrency ---");
-        
-        try {
-            // Show user's portfolio
-            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
-            List<Currency> currencies = currencyService.getAllCurrencies();
-            
-            System.out.println("Your Holdings:");
-            for (Wallet wallet : wallets) {
-                if (wallet.getBalance().compareTo(BigDecimal.ZERO) > 0 && 
-                    !"USDT".equals(wallet.getCurrencyCode())) {
-                    
-                    Currency currency = currencies.stream()
-                        .filter(c -> c.getCurrencyCode().equals(wallet.getCurrencyCode()))
-                        .findFirst().orElse(null);
-                    
-                    if (currency != null) {
-                        System.out.printf("%-8s - %s (Price: %s USDT)%n",
-                                        currency.getCurrencyCode(),
-                                        FormattingUtils.formatCurrency(wallet.getBalance()),
-                                        FormattingUtils.formatPrice(currency.getCurrentPrice()));
-                    }
-                }
-            }
-            
-            System.out.print("\nEnter currency code to sell: ");
-            String currencyCode = scanner.nextLine().trim().toUpperCase();
-            
-            Currency selectedCurrency = currencyService.getCurrency(currencyCode);
-            if (selectedCurrency == null || "USDT".equals(currencyCode)) {
-                System.out.println("Invalid currency code.");
-                return;
-            }
-            
-            Wallet wallet = walletService.getUserWallet(currentUser.getUserId(), currencyCode);
-            if (wallet == null || wallet.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
-                System.out.println("You don't have any " + currencyCode + " to sell.");
-                return;
-            }
-            
-            System.out.printf("Available balance: %s %s%n", 
-                            FormattingUtils.formatCurrency(wallet.getBalance()), currencyCode);
-            
-            System.out.print("Enter amount to sell: ");
-            BigDecimal amount = getBigDecimalInput();
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0 || 
-                amount.compareTo(wallet.getBalance()) > 0) {
-                System.out.println("Invalid amount.");
-                return;
-            }
-            
-            BigDecimal price = selectedCurrency.getCurrentPrice();
-            BigDecimal totalValue = amount.multiply(price);
-            BigDecimal fee = totalValue.multiply(Constants.TRADING_FEE_PERCENTAGE);
-            BigDecimal netValue = totalValue.subtract(fee);
-            
-            System.out.printf("\nTrade Summary:%n");
-            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
-            System.out.printf("Price per unit: %s USDT%n", FormattingUtils.formatPrice(price));
-            System.out.printf("Gross value: %s USDT%n", FormattingUtils.formatPrice(totalValue));
-            System.out.printf("Trading fee (0.1%%): %s USDT%n", FormattingUtils.formatPrice(fee));
-            System.out.printf("Net proceeds: %s USDT%n", FormattingUtils.formatPrice(netValue));
-            
-            System.out.print("\nConfirm sale? (y/n): ");
-            String confirm = scanner.nextLine().trim().toLowerCase();
-            
-            if ("y".equals(confirm) || "yes".equals(confirm)) {
-                Transaction transaction = tradingService.sellCryptocurrency(
-                    currentUser.getUserId(), currencyCode, amount, price);
-                
-                System.out.println("\nSale successful!");
-                System.out.println("Transaction ID: " + transaction.getTransactionId());
-                System.out.println("Transaction Hash: " + 
-                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
-            } else {
-                System.out.println("Sale cancelled.");
-            }
-            
-        } catch (SQLException e) {
-            System.err.println("Sale failed: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-        }
+
+    @GetMapping("/username/{username}")
+    @Operation(summary = "Get user by username", description = "Retrieve a user by username")
+    public ResponseEntity<User> getUserByUsername(@PathVariable String username) {
+        Optional<User> user = userService.getUserByUsername(username);
+        return user.map(ResponseEntity::ok)
+                  .orElse(ResponseEntity.notFound().build());
     }
-    
-    private void transferFunds() {
-        System.out.println("\n--- Transfer Funds ---");
-        
-        try {
-            System.out.print("Enter recipient's user ID: ");
-            Long recipientId = getLongInput();
-            
-            if (recipientId.equals(currentUser.getUserId())) {
-                System.out.println("Cannot transfer to yourself.");
-                return;
-            }
-            
-            // Verify recipient exists
-            User recipient = userService.getUserById(recipientId);
-            if (recipient == null) {
-                System.out.println("Recipient not found.");
-                return;
-            }
-            
-            System.out.println("Recipient: " + recipient.getUsername());
-            
-            // Show user's balances
-            List<Wallet> wallets = walletService.getUserWallets(currentUser.getUserId());
-            System.out.println("\nYour Balances:");
-            for (Wallet wallet : wallets) {
-                if (wallet.getBalance().compareTo(BigDecimal.ZERO) > 0) {
-                    System.out.printf("%-8s: %s%n",
-                                    wallet.getCurrencyCode(),
-                                    FormattingUtils.formatCurrency(wallet.getBalance()));
-                }
-            }
-            
-            System.out.print("\nEnter currency code to transfer: ");
-            String currencyCode = scanner.nextLine().trim().toUpperCase();
-            
-            Wallet wallet = walletService.getUserWallet(currentUser.getUserId(), currencyCode);
-            if (wallet == null || wallet.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
-                System.out.println("You don't have any " + currencyCode + " to transfer.");
-                return;
-            }
-            
-            System.out.print("Enter amount to transfer: ");
-            BigDecimal amount = getBigDecimalInput();
-            
-            BigDecimal transferFee = amount.multiply(new BigDecimal("0.0005"));
-            BigDecimal totalDeduction = amount.add(transferFee);
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0 || 
-                totalDeduction.compareTo(wallet.getBalance()) > 0) {
-                System.out.println("Invalid amount or insufficient balance.");
-                return;
-            }
-            
-            System.out.printf("\nTransfer Summary:%n");
-            System.out.printf("Recipient: %s%n", recipient.getUsername());
-            System.out.printf("Amount: %s %s%n", FormattingUtils.formatCurrency(amount), currencyCode);
-            System.out.printf("Transfer fee (0.05%%): %s %s%n", 
-                            FormattingUtils.formatCurrency(transferFee), currencyCode);
-            System.out.printf("Total deduction: %s %s%n", 
-                            FormattingUtils.formatCurrency(totalDeduction), currencyCode);
-            
-            System.out.print("\nConfirm transfer? (y/n): ");
-            String confirm = scanner.nextLine().trim().toLowerCase();
-            
-            if ("y".equals(confirm) || "yes".equals(confirm)) {
-                Transaction transaction = tradingService.transferFunds(
-                    currentUser.getUserId(), recipientId, currencyCode, amount);
-                
-                System.out.println("\nTransfer successful!");
-                System.out.println("Transaction ID: " + transaction.getTransactionId());
-                System.out.println("Transaction Hash: " + 
-                                 FormattingUtils.formatTransactionHash(transaction.getTransactionHash()));
-            } else {
-                System.out.println("Transfer cancelled.");
-            }
-            
-        } catch (SQLException e) {
-            System.err.println("Transfer failed: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
+
+    @PostMapping
+    @Operation(summary = "Register new user", description = "Register a new user")
+    public ResponseEntity<?> registerUser(@Valid @RequestBody UserDto userDto) {
+        if (userService.existsByUsername(userDto.getUsername())) {
+            return ResponseEntity.badRequest().body("Username already exists!");
         }
+        if (userService.existsByEmail(userDto.getEmail())) {
+            return ResponseEntity.badRequest().body("Email already exists!");
+        }
+        
+        User user = new User();
+        user.setUsername(userDto.getUsername());
+        user.setEncryptedPin(userDto.getPin()); // In real app, encrypt this
+        user.setEmail(userDto.getEmail());
+        user.setPhoneNumber(userDto.getPhoneNumber());
+        user.setKycStatus("PENDING");
+        
+        User savedUser = userService.saveUser(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
     }
+
+    @PutMapping("/{userId}")
+    @Operation(summary = "Update user", description = "Update an existing user")
+    public ResponseEntity<User> updateUser(
+            @PathVariable Long userId,
+            @Valid @RequestBody UserDto userDto) {
+        Optional<User> existingUser = userService.getUserById(userId);
+        if (!existingUser.isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        User user = existingUser.get();
+        user.setUsername(userDto.getUsername());
+        user.setEmail(userDto.getEmail());
+        user.setPhoneNumber(userDto.getPhoneNumber());
+        
+        User updatedUser = userService.saveUser(user);
+        return ResponseEntity.ok(updatedUser);
+    }
+
+    @DeleteMapping("/{userId}")
+    @Operation(summary = "Delete user", description = "Delete a user by ID")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
+        if (!userService.getUserById(userId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        userService.deleteUser(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{userId}/kyc-status")
+    @Operation(summary = "Update KYC status", description = "Update user's KYC status")
+    public ResponseEntity<Void> updateKycStatus(
+            @PathVariable Long userId,
+            @RequestParam String kycStatus) {
+        userService.updateKycStatus(userId, kycStatus);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/kyc-status/{status}")
+    @Operation(summary = "Get users by KYC status", description = "Get all users with specific KYC status")
+    public ResponseEntity<List<User>> getUsersByKycStatus(@PathVariable String status) {
+        List<User> users = userService.getUsersByKycStatus(status);
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/stats/approved-count")
+    @Operation(summary = "Get approved users count", description = "Get count of approved users")
+    public ResponseEntity<Long> getApprovedUsersCount() {
+        Long count = userService.getApprovedUsersCount();
+        return ResponseEntity.ok(count);
+    }
+}
+```
+
+### WalletController
+```java
+package com.crypto.trading.controller;
+
+import com.crypto.trading.dto.WalletDto;
+import com.crypto.trading.entity.Currency;
+import com.crypto.trading.entity.User;
+import com.crypto.trading.entity.Wallet;
+import com.crypto.trading.service.CurrencyService;
+import com.crypto.trading.service.UserService;
+import com.crypto.trading.service.WalletService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/wallets")
+@Tag(name = "Wallet Management", description = "APIs for managing user wallets")
+public class WalletController {
+
+    @Autowired
+    private WalletService walletService;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private CurrencyService currencyService;
+
+    @GetMapping
+    @Operation(summary = "Get all wallets", description = "Retrieve all wallets")
+    public ResponseEntity<List<Wallet>> getAllWallets() {
+        List<Wallet> wallets = walletService.getAllWallets();
+        return ResponseEntity.ok(wallets);
+    }
+
+    @GetMapping("/{walletId}")
+    @Operation(summary = "Get wallet by ID", description = "Retrieve a specific wallet by ID")
+    public ResponseEntity<Wallet> getWalletById(@PathVariable Long walletId) {
+        Optional<Wallet> wallet = walletService.getWalletById(walletId);
+        return wallet.map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "Get wallets by user", description = "Get all wallets for a specific user")
+    public ResponseEntity<List<Wallet>> getWalletsByUserId(@PathVariable Long userId) {
+        List<Wallet> wallets = walletService.getWalletsByUserId(userId);
+        return ResponseEntity.ok(wallets);
+    }
+
+    @PostMapping
+    @Operation(summary = "Create new wallet", description = "Create a new wallet for a user")
+    public ResponseEntity<?> createWallet(@Valid @RequestBody WalletDto walletDto) {
+        Optional<User> user = userService.getUserById(walletDto.getUserId());
+        if (!user.isPresent()) {
+            return ResponseEntity.badRequest().body("User not found!");
+        }
+
+        Optional<Currency> currency = currencyService.getCurrencyByCode(walletDto.getCurrencyCode());
+        if (!currency.isPresent()) {
+            return ResponseEntity.badRequest().body("Currency not found!");
+        }
+
+        // Check if user already has a wallet for this currency
+        Optional<Wallet> existingWallet = walletService.getUserWalletByCurrency(
+            walletDto.getUserId(), walletDto.getCurrencyCode());
+        if (existingWallet.isPresent()) {
+            return ResponseEntity.badRequest().body("User already has a wallet for this currency!");
+        }
+
+        Wallet wallet = new Wallet();
+        wallet.setUser(user.get());
+        wallet.setCurrency(currency.get());
+        wallet.setBalance(walletDto.getBalance() != null ? walletDto.getBalance() : BigDecimal.ZERO);
+        wallet.setStatus("ACTIVE");
+
+        Wallet savedWallet = walletService.saveWallet(wallet);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedWallet);
+    }
+
+    @PutMapping("/{walletId}/balance")
+    @Operation(summary = "Update wallet balance", description = "Update the balance of a wallet")
+    public ResponseEntity<Void> updateWalletBalance(
+            @PathVariable Long walletId,
+            @RequestParam BigDecimal newBalance) {
+        if (!walletService.getWalletById(walletId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        walletService.updateWalletBalance(walletId, newBalance);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{walletId}")
+    @Operation(summary = "Delete wallet", description = "Delete a wallet by ID")
+    public ResponseEntity<Void> deleteWallet(@PathVariable Long walletId) {
+        if (!walletService.getWalletById(walletId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        walletService.deleteWallet(walletId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{walletId}/deactivate")
+    @Operation(summary = "Deactivate wallet", description = "Deactivate a wallet")
+    public ResponseEntity<Void> deactivateWallet(@PathVariable Long walletId) {
+        if (!walletService.getWalletById(walletId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        walletService.deactivateWallet(walletId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/currency/{currencyCode}/total-balance")
+    @Operation(summary = "Get total balance by currency", description = "Get total balance across all wallets for a currency")
+    public ResponseEntity<BigDecimal> getTotalBalanceByCurrency(@PathVariable String currencyCode) {
+        BigDecimal totalBalance = walletService.getTotalBalanceByCurrency(currencyCode);
+        return ResponseEntity.ok(totalBalance);
+    }
+
+    @GetMapping("/active")
+    @Operation(summary = "Get active wallets", description = "Get all active wallets")
+    public ResponseEntity<List<Wallet>> getActiveWallets() {
+        List<Wallet> wallets = walletService.getActiveWallets();
+        return ResponseEntity.ok(wallets);
+    }
+}
+```
+
+### TransactionController
+```java
+package com.crypto.trading.controller;
+
+import com.crypto.trading.dto.TransactionDto;
+import com.crypto.trading.entity.Currency;
+import com.crypto.trading.entity.Transaction;
+import com.crypto.trading.entity.User;
+import com.crypto.trading.service.CurrencyService;
+import com.crypto.trading.service.TransactionService;
+import com.crypto.trading.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/transactions")
+@Tag(name = "Transaction Management", description = "APIs for managing transactions")
+public class TransactionController {
+
+    @Autowired
+    private TransactionService transactionService;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private CurrencyService currencyService;
+
+    @GetMapping
+    @Operation(summary = "Get all transactions", description = "Retrieve all transactions")
+    public ResponseEntity<List<Transaction>> getAllTransactions() {
+        List<Transaction> transactions = transactionService.getAllTransactions();
+        return ResponseEntity.ok(transactions);
+    }
+
+    @GetMapping("/{transactionId}")
+    @Operation(summary = "Get transaction by ID", description = "Retrieve a specific transaction by ID")
+    public ResponseEntity<Transaction> getTransactionById(@PathVariable Long transactionId) {
+        Optional<Transaction> transaction = transactionService.getTransactionById(transactionId);
+        return transaction.map(ResponseEntity::ok)
+                         .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "Get transactions by user", description = "Get all transactions for a specific user")
+    public ResponseEntity<List<Transaction>> getTransactionsByUserId(@PathVariable Long userId) {
+        List<Transaction> transactions = transactionService.getTransactionsByUserId(userId);
+        return ResponseEntity.ok(transactions);
+    }
+
+    @GetMapping("/type/{transactionType}")
+    @Operation(summary = "Get transactions by type", description = "Get all transactions of a specific type")
+    public ResponseEntity<List<Transaction>> getTransactionsByType(@PathVariable String transactionType) {
+        List<Transaction> transactions = transactionService.getTransactionsByType(transactionType);
+        return ResponseEntity.ok(transactions);
+    }
+
+    @PostMapping
+    @Operation(summary = "Create new transaction", description = "Create a new transaction")
+    public ResponseEntity<?> createTransaction(@Valid @RequestBody TransactionDto transactionDto) {
+        Optional<User> user = userService.getUserById(transactionDto.getUserId());
+        if (!user.isPresent()) {
+            return ResponseEntity.badRequest().body("User not found!");
+        }
+
+        Transaction transaction = new Transaction();
+        transaction.setUser(user.get());
+        transaction.setTransactionType(transactionDto.getTransactionType());
+        transaction.setAmount(transactionDto.getAmount());
+        transaction.setPricePerUnit(transactionDto.getPricePerUnit());
+        transaction.setTotalValue(transactionDto.getTotalValue());
+        transaction.setTransactionFee(transactionDto.getTransactionFee());
+        transaction.setStatus("PENDING");
+
+        // Set currencies if provided
+        if (transactionDto.getFromCurrency() != null) {
+            Optional<Currency> fromCurrency = currencyService.getCurrencyByCode(transactionDto.getFromCurrency());
+            fromCurrency.ifPresent(transaction::setFromCurrency);
+        }
+
+        if (transactionDto.getToCurrency() != null) {
+            Optional<Currency> toCurrency = currencyService.getCurrencyByCode(transactionDto.getToCurrency());
+            toCurrency.ifPresent(transaction::setToCurrency);
+        }
+
+        Transaction savedTransaction = transactionService.saveTransaction(transaction);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedTransaction);
+    }
+
+    @PutMapping("/{transactionId}/status")
+    @Operation(summary = "Update transaction status", description = "Update the status of a transaction")
+    public ResponseEntity<Void> updateTransactionStatus(
+            @PathVariable Long transactionId,
+            @RequestParam String status) {
+        if (!transactionService.getTransactionById(transactionId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        transactionService.updateTransactionStatus(transactionId, status);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{transactionId}/complete")
+    @Operation(summary = "Complete transaction", description = "Mark a transaction as completed")
+    public ResponseEntity<Void> completeTransaction(@PathVariable Long transactionId) {
+        if (!transactionService.getTransactionById(transactionId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        transactionService.completeTransaction(transactionId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/date-range")
+    @Operation(summary = "Get transactions by date range", description = "Get transactions within a date range")
+    public ResponseEntity<List<Transaction>> getTransactionsBetweenDates(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        List<Transaction> transactions = transactionService.getTransactionsBetweenDates(startDate, endDate);
+        return ResponseEntity.ok(transactions);
+    }
+
+    @GetMapping("/stats/total-buy-volume")
+    @Operation(summary = "Get total buy volume", description = "Get total volume of completed buy transactions")
+    public ResponseEntity<Double> getTotalBuyVolume() {
+        Double totalVolume = transactionService.getTotalBuyVolume();
+        return ResponseEntity.ok(totalVolume);
+    }
+
+    @GetMapping("/hash/{transactionHash}")
+    @Operation(summary = "Get transaction by hash", description = "Retrieve a transaction by its hash")
+    public ResponseEntity<Transaction> getTransactionByHash(@PathVariable String transactionHash) {
+        Optional<Transaction> transaction = transactionService.getTransactionByHash(transactionHash);
+        return transaction.map(ResponseEntity::ok)
+                         .orElse(ResponseEntity.notFound().build());
+    }
+}
+```
+
+### SmartContractController
+```java
+package com.crypto.trading.controller;
+
+import com.crypto.trading.entity.SmartContract;
+import com.crypto.trading.entity.User;
+import com.crypto.trading.service.SmartContractService;
+import com.crypto.trading.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/smart-contracts")
+@Tag(name = "Smart Contract Management", description = "APIs for managing smart contracts")
+public class SmartContractController {
+
+    @Autowired
+    private SmartContractService smartContractService;
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping
+    @Operation(summary = "Get all smart contracts", description = "Retrieve all smart contracts")
+    public ResponseEntity<List<SmartContract>> getAllSmartContracts() {
+        List<SmartContract> contracts = smartContractService.getAllSmartContracts();
+        return ResponseEntity.ok(contracts);
+    }
+
+    @GetMapping("/{contractId}")
+    @Operation(summary = "Get smart contract by ID", description = "Retrieve a specific smart contract by ID")
+    public ResponseEntity<SmartContract> getSmartContractById(@PathVariable Long contractId) {
+        Optional<SmartContract> contract = smartContractService.getSmartContractById(contractId);
+        return contract.map(ResponseEntity::ok)
+                      .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/owner/{ownerId}")
+    @Operation(summary = "Get contracts by owner", description = "Get all smart contracts for a specific owner")
+    public ResponseEntity<List<SmartContract>> getSmartContractsByOwnerId(@PathVariable Long ownerId) {
+        List<SmartContract> contracts = smartContractService.getSmartContractsByOwnerId(ownerId);
+        return ResponseEntity.ok(contracts);
+    }
+
+    @PostMapping
+    @Operation(summary = "Create new smart contract", description = "Create a new smart contract")
+    public ResponseEntity<?> createSmartContract(@Valid @RequestBody SmartContract smartContract) {
+        Optional<User> owner = userService.getUserById(smartContract.getOwner().getUserId());
+        if (!owner.isPresent()) {
+            return ResponseEntity.badRequest().body("Owner not found!");
+        }
+
+        smartContract.setOwner(owner.get());
+        smartContract.setStatus("ACTIVE");
+        SmartContract savedContract = smartContractService.saveSmartContract(smartContract);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedContract);
+    }
+
+    @PutMapping("/{contractId}")
+    @Operation(summary = "Update smart contract", description = "Update an existing smart contract")
+    public ResponseEntity<SmartContract> updateSmartContract(
+            @PathVariable Long contractId,
+            @Valid @RequestBody SmartContract smartContract) {
+        if (!smartContractService.getSmartContractById(contractId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        smartContract.setContractId(contractId);
+        SmartContract updatedContract = smartContractService.saveSmartContract(smartContract);
+        return ResponseEntity.ok(updatedContract);
+    }
+
+    @DeleteMapping("/{contractId}")
+    @Operation(summary = "Delete smart contract", description = "Delete a smart contract by ID")
+    public ResponseEntity<Void> deleteSmartContract(@PathVariable Long contractId) {
+        if (!smartContractService.getSmartContractById(contractId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        smartContractService.deleteSmartContract(contractId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{contractId}/status")
+    @Operation(summary = "Update contract status", description = "Update the status of a smart contract")
+    public ResponseEntity<Void> updateContractStatus(
+            @PathVariable Long contractId,
+            @RequestParam String status) {
+        if (!smartContractService.getSmartContractById(contractId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        smartContractService.updateContractStatus(contractId, status);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{contractId}/deactivate")
+    @Operation(summary = "Deactivate contract", description = "Deactivate a smart contract")
+    public ResponseEntity<Void> deactivateContract(@PathVariable Long contractId) {
+        if (!smartContractService.getSmartContractById(contractId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        smartContractService.deactivateContract(contractId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Search contracts by name", description = "Search smart contracts by name")
+    public ResponseEntity<List<SmartContract>> searchContractsByName(@RequestParam String contractName) {
+        List<SmartContract> contracts = smartContractService.searchContractsByName(contractName);
+        return ResponseEntity.ok(contracts);
+    }
+
+    @GetMapping("/status/{status}")
+    @Operation(summary = "Get contracts by status", description = "Get all smart contracts with specific status")
+    public ResponseEntity<List<SmartContract>> getContractsByStatus(@PathVariable String status) {
+        List<SmartContract> contracts = smartContractService.getSmartContractsByStatus(status);
+        return ResponseEntity.ok(contracts);
+    }
+}
+```
+
+### BlockchainDataController
+```java
+package com.crypto.trading.controller;
+
+import com.crypto.trading.entity.BlockchainData;
+import com.crypto.trading.service.BlockchainDataService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/blockchain")
+@Tag(name = "Blockchain Data Management", description = "APIs for managing blockchain data")
+public class BlockchainDataController {
+
+    @Autowired
+    private BlockchainDataService blockchainDataService;
+
+    @GetMapping("/blocks")
+    @Operation(summary = "Get all blocks", description = "Retrieve all blockchain blocks")
+    public ResponseEntity<List<BlockchainData>> getAllBlocks() {
+        List<BlockchainData> blocks = blockchainDataService.getAllBlocks();
+        return ResponseEntity.ok(blocks);
+    }
+
+    @GetMapping("/blocks/{blockId}")
+    @Operation(summary = "Get block by ID", description = "Retrieve a specific block by ID")
+    public ResponseEntity<BlockchainData> getBlockById(@PathVariable Long blockId) {
+        Optional<BlockchainData> block = blockchainDataService.getBlockById(blockId);
+        return block.map(ResponseEntity::ok)
+                   .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/blocks/hash/{blockHash}")
+    @Operation(summary = "Get block by hash", description = "Retrieve a block by its hash")
+    public ResponseEntity<BlockchainData> getBlockByHash(@PathVariable String blockHash) {
+        Optional<BlockchainData> block = blockchainDataService.getBlockByHash(blockHash);
+        return block.map(ResponseEntity::ok)
+                   .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/blocks")
+    @Operation(summary = "Create new block", description = "Create a new blockchain block")
+    public ResponseEntity<BlockchainData> createBlock(@Valid @RequestBody BlockchainData blockchainData) {
+        BlockchainData savedBlock = blockchainDataService.saveBlock(blockchainData);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedBlock);
+    }
+
+    @PutMapping("/blocks/{blockId}")
+    @Operation(summary = "Update block", description = "Update an existing blockchain block")
+    public ResponseEntity<BlockchainData> updateBlock(
+            @PathVariable Long blockId,
+            @Valid @RequestBody BlockchainData blockchainData) {
+        if (!blockchainDataService.getBlockById(blockId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        blockchainData.setBlockId(blockId);
+        BlockchainData updatedBlock = blockchainDataService.saveBlock(blockchainData);
+        return ResponseEntity.ok(updatedBlock);
+    }
+
+    @DeleteMapping("/blocks/{blockId}")
+    @Operation(summary = "Delete block", description = "Delete a blockchain block by ID")
+    public ResponseEntity<Void> deleteBlock(@PathVariable Long blockId) {
+        if (!blockchainDataService.getBlockById(blockId).isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+        blockchainDataService.deleteBlock(blockId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/blocks/date-range")
+    @Operation(summary = "Get blocks by date range", description = "Get blocks within a date range")
+    public ResponseEntity<List<BlockchainData>> getBlocksBetweenDates(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        List<BlockchainData> blocks = blockchainDataService.getBlocksBetweenDates(startDate, endDate);
+        return ResponseEntity.ok(blocks);
+    }
+
+    @GetMapping("/blocks/latest")
+    @Operation(summary = "Get latest blocks", description = "Get blocks ordered by timestamp (latest first)")
+    public ResponseEntity<List<BlockchainData>> getLatestBlocks() {
+        List<BlockchainData> blocks = blockchainDataService.getLatestBlocks();
+        return ResponseEntity.ok(blocks);
+    }
+
+    @GetMapping("/blocks/difficulty/{minDifficulty}")
+    @Operation(summary = "Get blocks by difficulty", description = "Get blocks with minimum difficulty level")
+    public ResponseEntity<List<BlockchainData>> getBlocksWithMinDifficulty(@PathVariable Integer minDifficulty) {
+        List<BlockchainData> blocks = blockchainDataService.getBlocksWithMinDifficulty(minDifficulty);
+        return ResponseEntity.ok(blocks);
+    }
+}
+```
+
+## 8. Application Properties
+
+```properties
+# application.properties
+# Database Configuration
+spring.datasource.url=jdbc:oracle:thin:@localhost:1521:XE
+spring.datasource.username=your_username
+spring.datasource.password=your_password
+spring.datasource.driver-class-name=oracle.jdbc.OracleDriver
+
+# JPA/Hibernate Configuration
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.Oracle12cDialect
+spring.jpa.open-in-view=false
+
+# Connection Pool Configuration
+spring.datasource.hikari.maximum-pool-size=20
+spring.datasource.hikari.minimum-idle=5
+spring.datasource.hikari.connection-timeout=60000
+spring.datasource.hikari.idle-timeout=300000
+
+# Server Configuration
+server.port=8080
+server.servlet.context-path=/crypto-trading
+
+# Logging Configuration
+logging.level.com.crypto.trading=DEBUG
+logging.level.org.springframework.jdbc.core=DEBUG
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+
+# Swagger/OpenAPI Configuration
+springdoc.api-docs.path=/api-docs
+springdoc.swagger-ui.path=/swagger-ui.html
+springdoc.swagger-ui.operationsSorter=method
+
+# Jackson Configuration
+spring.jackson.serialization.write-dates-as-timestamps=false
+spring.jackson.time-zone=UTC
+
+# Transaction Management
+spring.transaction.rollback-on-commit-failure=true
+```
+
+## 9. Maven Dependencies (pom.xml)
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.crypto.trading</groupId>
+    <artifactId>crypto-trading-platform</artifactId>
+    <version>1.0.0</version>
+    <name>crypto-trading-platform</name>
+    <description>Crypto Trading Platform Backend</description>
+
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
+    <dependencies>
+        <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Oracle JDBC Driver -->
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Swagger/OpenAPI Documentation -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Spring Boot Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JSON Processing -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
+
+## 10. Usage Instructions
+
+### Running the Application
+1. Install Oracle Database and create the schema using the provided SQL script
+2. Update `application.properties` with your database credentials
+3. Run `mvn clean install` to build the project
+4. Run `mvn spring-boot:run` or run the main class directly
+5. Access Swagger UI at `http://localhost:8080/crypto-trading/swagger-ui.html`
+
+### API Endpoints Summary
+- **Currencies**: `/api/currencies` - Manage cryptocurrencies
+- **Users**: `/api/users` - User management and registration
+- **Wallets**: `/api/wallets` - Wallet operations
+- **Transactions**: `/api/transactions` - Transaction processing
+- **Smart Contracts**: `/api/smart-contracts` - Smart contract management
+- **Blockchain**: `/api/blockchain` - Blockchain data operations
+
+### Key Features
+- Full CRUD operations for all entities
+- RESTful API design with proper HTTP status codes
+- Swagger documentation for API testing
+- JPA/Hibernate for ORM mapping
+- Spring JDBC for custom queries
+- Transaction management with @Transactional
+- Validation using Jakarta Bean Validation
+- Proper error handling and response formatting
+
+This backend provides a solid foundation for your crypto trading platform with all requested technologies integrated.
